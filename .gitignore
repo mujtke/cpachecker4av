@@ -74,3 +74,4 @@ a.out
 /.classpath
 /.gitlab-ci.yml
 /.pydevproject
+/hs_err_pid11680.log

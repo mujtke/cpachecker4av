@@ -545,7 +545,15 @@ public class CPAchecker {
     try {
       int counterExampleCount = 0;
       do {
+        long verifyTime = System.currentTimeMillis();
+
         status = status.update(algorithm.run(reached));
+
+        verifyTime = System.currentTimeMillis() - verifyTime;
+        System.out.println("========================== Verify Result ===========================");
+        System.out.println("explored states: " + ((ARGState) reached.getLastState()).getStateId());
+        System.out.println("total time: " + verifyTime + " ms");
+        System.out.println("====================================================================");
 
         if (cexLimit > 0) {
           counterExampleCount =
