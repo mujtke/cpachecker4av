@@ -66,6 +66,7 @@ import org.sosy_lab.cpachecker.core.algorithm.TestCaseGeneratorAlgorithm;
 import org.sosy_lab.cpachecker.core.algorithm.UndefinedFunctionCollectorAlgorithm;
 import org.sosy_lab.cpachecker.core.algorithm.bmc.BMCAlgorithm;
 import org.sosy_lab.cpachecker.core.algorithm.bmc.pdr.PdrAlgorithm;
+import org.sosy_lab.cpachecker.core.algorithm.ccex.CCEXAlgorithm;
 import org.sosy_lab.cpachecker.core.algorithm.counterexamplecheck.CounterexampleCheckAlgorithm;
 import org.sosy_lab.cpachecker.core.algorithm.impact.ImpactAlgorithm;
 import org.sosy_lab.cpachecker.core.algorithm.mpv.MPVAlgorithm;
@@ -126,6 +127,13 @@ public class CoreComponentsFactory {
         + "\nYou need to specify a refiner with the cegar.refiner option."
         + "\nCurrently all refiner require the use of the ARGCPA.")
   private boolean useCEGAR = false;
+
+  @Option(
+    secure = true,
+    name = "algorithm.CCEX",
+    description = "use CCEX algorithm to check whether there is a"
+        + " real counterexample in the reached set.")
+  private boolean useCCEX = false;
 
   @Option(secure=true, description="use a second model checking run (e.g., with CBMC or a different CPAchecker configuration) to double-check counter-examples")
   private boolean checkCounterexamples = false;
@@ -451,6 +459,10 @@ public class CoreComponentsFactory {
         algorithm =
             new CEGARAlgorithmFactory(algorithm, cpa, logger, config, shutdownNotifier)
                 .newInstance();
+      }
+
+      if (useCCEX) {
+        algorithm = new CCEXAlgorithm(algorithm, logger, config, shutdownNotifier);
       }
 
       if (usePDR) {
