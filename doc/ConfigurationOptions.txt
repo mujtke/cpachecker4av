@@ -1564,6 +1564,10 @@ cpa.ifcsecurity.statestocheck = 0
 cpa.ifcsecurity.stop = "SEP"
   allowed values: [SEP, JOIN]
 
+# mergeType
+cpa.influence.merge = "sep"
+  allowed values: [sep, join]
+
 # which type of merge operator to use for IntervalAnalysisCPA
 cpa.interval.merge = "SEP"
   allowed values: [SEP, JOIN]
@@ -1649,6 +1653,32 @@ cpa.local.localvariables = {}
 # followed. By disabling this option one can traverse a function without
 # following function calls (in this case FunctionSummaryEdges are used)
 cpa.location.followFunctionCalls = true
+
+# allow assignments of a new thread to the same left-hand-side as an existing
+# thread.
+cpa.locations.allowMultipleLHS = false
+
+# With this option enabled, function calls that occur in the CFA are
+# followed. By disabling this option one can traverse a function without
+# following function calls (in this case FunctionSummaryEdges are used)
+cpa.locations.followFunctionCalls = true
+
+# With this option enabled, the migration between two abstract states will
+# apply to concurrent programs.
+cpa.locations.forConcurrent = true
+
+# the maximal number of parallel threads, -1 for infinite. When combined with
+# 'useClonedFunctions=true', we need at least N cloned functions. The option
+# 'cfa.cfaCloner.numberOfCopies' should be set to N.
+cpa.locations.maxNumberOfThreads = 5
+
+# in case of witness validation we need to check all possible function calls
+# of cloned CFAs.
+cpa.locations.useAllPossibleClones = false
+
+# do not use the original functions from the CFA, but cloned ones. See
+# cfa.postprocessing.CFACloner for detail.
+cpa.locations.useClonedFunctions = true
 
 # What are we searching for: race or deadlock
 cpa.lock.analysisMode = RACE
