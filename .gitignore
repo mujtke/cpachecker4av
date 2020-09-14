@@ -75,3 +75,4 @@ a.out
 /.gitlab-ci.yml
 /.pydevproject
 /hs_err_pid11680.log
+/test2.c
