@@ -128,7 +128,7 @@ public class CounterexampleChecker {
       return isUnsat(formula);
     }
 
-    return false;
+    return true;
   }
 
   private BooleanFormula genEntireFormulaForPath(List<CFAEdge> pathEdges)
