@@ -44,6 +44,7 @@ import org.sosy_lab.cpachecker.cfa.model.FunctionCallEdge;
 import org.sosy_lab.cpachecker.cfa.model.FunctionEntryNode;
 import org.sosy_lab.cpachecker.cfa.model.FunctionSummaryEdge;
 import org.sosy_lab.cpachecker.cfa.model.c.CFunctionSummaryStatementEdge;
+import org.sosy_lab.cpachecker.cfa.postprocessing.global.CFACloner;
 import org.sosy_lab.cpachecker.core.AnalysisDirection;
 import org.sosy_lab.cpachecker.core.defaults.SingleEdgeTransferRelation;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
@@ -109,6 +110,12 @@ public class CallstackTransferRelation extends SingleEdgeTransferRelation {
     case FunctionCallEdge: {
         final String calledFunction = succ.getFunctionName();
         final CFANode callerNode = pred;
+
+        // 2020.09.15 add according to cpa-seq.
+        if (this.options.getUnsupportedFunctions()
+            .contains(CFACloner.extractFunctionName(calledFunction))) {
+          throw new UnsupportedCodeException(calledFunction, pEdge);
+        }
 
         if (hasRecursion(e, calledFunction)) {
           if (skipRecursiveFunctionCall(e, (FunctionCallEdge)pEdge)) {
