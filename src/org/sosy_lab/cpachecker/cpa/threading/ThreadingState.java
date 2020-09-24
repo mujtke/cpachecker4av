@@ -268,7 +268,7 @@ public class ThreadingState implements AbstractState, AbstractStateWithLocations
 
   @Override
   public boolean shouldBeHighlighted() {
-    return false;
+    return true;
   }
 
   @Override
