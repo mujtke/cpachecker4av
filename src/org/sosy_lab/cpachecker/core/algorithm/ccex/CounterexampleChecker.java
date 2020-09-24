@@ -123,6 +123,7 @@ public class CounterexampleChecker {
       // could be found in the optimization section of C-Intp algorithm)
     } else {
       BooleanFormula formula = genEntireFormulaForPath(pathEdges);
+
       // if the path formula is unsatisfiable, then we can conclude that this error path is actually
       // infeasible.
       return isUnsat(formula);

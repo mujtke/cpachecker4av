@@ -42,6 +42,8 @@ import org.sosy_lab.cpachecker.util.globalinfo.GlobalInfo;
  *
  * @implNote This algorithm always combine with the BDD-based analysis algorithm which could not
  *           support many features of C language, thus may report false-negative result.
+ * 
+ * @implNote When using BDD-based algorithm, the merge type should be 'sep' (avoid losing any edge).
  */
 @Options(prefix = "ccex")
 public class CCEXAlgorithm implements Algorithm, ReachedSetUpdater {
