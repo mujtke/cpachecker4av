@@ -148,8 +148,17 @@ public class LocationsState
 
   @Override
   public String getCPAName() {
-    // TODO Auto-generated method stub
-    return "locations";
+    // in order to compatible with original verification process, the
+    // name of this CPA will be 'location' instead of 'locations'.
+    //
+    // the error case of using 'locations':
+    // case: pthread-divine/ring_1w1r_true-unreach-call.i
+    // error output: Error: Automaton transition condition could not be evaluated: No State of CPA
+    // "location" was found! (AutomatonTransferRelation.getFollowStates, SEVERE)
+    // error source: org.sosy_lab.cpachecker.cpa.automaton.AutomatonBoolExpr::1213:
+    // return new ResultValue<>(
+    // "No State of CPA \"" + cpaName + "\" was found!", "AutomatonBoolExpr.CPAQuery");
+    return "location";
   }
 
   @Override
