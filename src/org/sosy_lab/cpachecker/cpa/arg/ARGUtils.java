@@ -190,8 +190,46 @@ public class ARGUtils {
   }
 
   /**
-   * Create a path in the ARG from root to the given element.
-   * If there are several such paths, one is chosen arbitrarily.
+   * Create a path in the ARG from root to the given element. If there are several such paths, we
+   * choose the path satisfies that the parent state ID of all child states is the maximum ID of the
+   * child state.
+   *
+   * @param pLastElement The last element in the path.
+   * @return A path from root to lastElement.
+   *
+   * @implNote This function is useful for DFS search strategy, the lastly explored path is always a
+   *           counterexample (if it's a real counterexample, the generated path contains the
+   *           smallest and necessary states).
+   * @implNote This function also compatible with ARGUtils::getOnePathTo(ARGState pLastElement),
+   *           because the result path is generated "arbitrarily".
+   */
+  public static ARGPath getLastExploredPathTo(ARGState pLastElement) {
+    List<ARGState> states = new ArrayList<>(); // reverse order.
+
+    ARGState largestParent = null, otherParent = null;
+    Iterator<ARGState> curParentsIter = pLastElement.getParents().iterator();
+    states.add(pLastElement);
+    while (curParentsIter.hasNext()) {
+      largestParent = curParentsIter.next();
+
+      // find the the lastly explored state.
+      while (curParentsIter.hasNext()) {
+        otherParent = curParentsIter.next();
+        if (otherParent.getStateId() > largestParent.getStateId()) {
+          largestParent = otherParent;
+        }
+      }
+
+      states.add(largestParent);
+      curParentsIter = largestParent.getParents().iterator();
+    }
+
+    return new ARGPath(Lists.reverse(states));
+  }
+
+  /**
+   * Create a path in the ARG from root to the given element. If there are several such paths, one
+   * is chosen arbitrarily.
    *
    * @param pLastElement The last element in the path.
    * @return A path from root to lastElement.

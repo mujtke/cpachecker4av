@@ -187,7 +187,8 @@ public class AbstractARGBasedRefiner implements Refiner, StatisticsProvider {
   @ForOverride
   @Nullable
   protected ARGPath computePath(ARGState pLastElement, ARGReachedSet pReached) throws InterruptedException, CPATransferException {
-    return ARGUtils.getOnePathTo(pLastElement);
+    return ARGUtils.getLastExploredPathTo(pLastElement);
+    // return ARGUtils.getOnePathTo(pLastElement);
   }
 
   @Override
