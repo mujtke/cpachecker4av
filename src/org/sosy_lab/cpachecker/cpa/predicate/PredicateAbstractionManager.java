@@ -69,6 +69,7 @@ import org.sosy_lab.cpachecker.cfa.model.CFANode;
 import org.sosy_lab.cpachecker.core.algorithm.invariants.InvariantSupplier;
 import org.sosy_lab.cpachecker.core.algorithm.invariants.InvariantSupplier.TrivialInvariantSupplier;
 import org.sosy_lab.cpachecker.cpa.callstack.CallstackStateEqualsWrapper;
+import org.sosy_lab.cpachecker.cpa.cintp.CIntpPrecisionAdjustment;
 import org.sosy_lab.cpachecker.cpa.predicate.persistence.PredicateAbstractionsStorage;
 import org.sosy_lab.cpachecker.cpa.predicate.persistence.PredicateAbstractionsStorage.AbstractionNode;
 import org.sosy_lab.cpachecker.cpa.predicate.persistence.PredicatePersistenceUtils.PredicateParsingFailedException;
@@ -350,8 +351,14 @@ public class PredicateAbstractionManager {
     // This is the (mutable) set of remaining predicates that still need to be handled.
     // Each step of our abstraction computation may be able to handle some predicates,
     // and should remove those from this set afterwards.
-    final Collection<AbstractionPredicate> remainingPredicates =
+    //    final Collection<AbstractionPredicate> remainingPredicates =
+    Collection<AbstractionPredicate> remainingPredicates =
         getRelevantPredicates(pPredicates, primaryFormula, instantiator);
+
+    // add conditional predicates.
+    if (CIntpPrecisionAdjustment.curPred != null) {
+      remainingPredicates.add(CIntpPrecisionAdjustment.curPred);
+    }
 
     if (fmgr.useBitwiseAxioms()) {
       for (AbstractionPredicate predicate : remainingPredicates) {

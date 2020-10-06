@@ -73,6 +73,7 @@ import org.sosy_lab.cpachecker.core.reachedset.UnmodifiableReachedSet;
 import org.sosy_lab.cpachecker.cpa.arg.ARGReachedSet;
 import org.sosy_lab.cpachecker.cpa.arg.ARGState;
 import org.sosy_lab.cpachecker.cpa.arg.ARGUtils;
+import org.sosy_lab.cpachecker.cpa.cintp.CIntpPrecisionAdjustment;
 import org.sosy_lab.cpachecker.cpa.predicate.PredicatePrecision.LocationInstance;
 import org.sosy_lab.cpachecker.cpa.predicate.persistence.PredicateMapWriter;
 import org.sosy_lab.cpachecker.cpa.value.ValueAnalysisCPA;
@@ -486,7 +487,10 @@ public class PredicateAbstractionRefinementStrategy extends RefinementStrategy
     switch (predicateSharing) {
     case GLOBAL:
       newPrecision = basePrecision.addGlobalPredicates(newPredicates.values());
-      break;
+        newPrecision =
+            newPrecision.addGlobalPredicates(
+                CIntpPrecisionAdjustment.getFormulaPredicateMap().values());
+        break;
     case SCOPE:
       Set<AbstractionPredicate> globalPredicates = new HashSet<>();
       ListMultimap<LocationInstance, AbstractionPredicate> localPredicates =

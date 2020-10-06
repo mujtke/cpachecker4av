@@ -178,6 +178,12 @@ public class PredicatePrecisionAdjustment implements PrecisionAdjustment {
     // get additional predicates
     Set<AbstractionPredicate> additionalPredicates = predicateProvider.getPredicates(fullState);
 
+    // add C-Intp predicates.
+    //    CIntpState cintpState = AbstractStates.extractStateByType(fullState, CIntpState.class);
+    //    if (cintpState != null) {
+    //      additionalPredicates.addAll(CIntpPrecisionAdjustment.getFormulaPredicateMap().values());
+    //    }
+
     AbstractionFormula newAbstractionFormula = null;
 
     // compute new abstraction
