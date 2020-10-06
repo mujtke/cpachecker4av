@@ -552,7 +552,15 @@ public class CPAchecker {
         verifyTime = System.currentTimeMillis() - verifyTime;
         System.out.println("========================== Verify Result ===========================");
         System.out.println("explored states: " + ((ARGState) reached.getLastState()).getStateId());
+        System.out.println("reached set size: " + reached.size());
         System.out.println("total time: " + verifyTime + " ms");
+        System.out.println("=========================== Predicates =============================");
+        //        CIntpPrecisionAdjustment.getFormulaPredicateMap()
+        //            .values()
+        //            .forEach(
+        //                p -> {
+        //                  System.out.println(p);
+        //                });
         System.out.println("====================================================================");
 
         if (cexLimit > 0) {

@@ -718,8 +718,10 @@ public final class InterpolationManager {
           throw new AssertionError("unknown interpolation strategy");
       }
 
+      getInterpolantTimer.start();
       final List<BooleanFormula> interpolants =
           itpStrategy.getInterpolants(pInterpolator, formulasWithStatesAndGroupdIds);
+      getInterpolantTimer.stop();
 
       assert formulasWithStatesAndGroupdIds.size() - 1 == interpolants.size()
           : "we should return N-1 interpolants for N formulas.";
