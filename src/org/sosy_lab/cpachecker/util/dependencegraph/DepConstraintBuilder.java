@@ -73,10 +73,6 @@ public class DepConstraintBuilder {
       EdgeVtx pNode1, EdgeVtx pNode2, boolean pUseCondDepConstraints) {
     assert pNode1 != null && pNode2 != null;
 
-    if (pNode1.getEdge().getLineNumber() == 799 && pNode2.getEdge().getLineNumber() == 712) {
-      System.out.println(pNode1 + "\t" + pNode2);
-    }
-
     // we only compute the conditional dependence constraints for simple DGNodes.
     if (pNode1.isSimpleEdgeVtx() && pNode2.isSimpleEdgeVtx()) {
       // handle pointer constraint.

@@ -135,7 +135,6 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     pConfig.inject(this);
 
     cfa = pCfa;
-    config = pConfig;
     logger = pLogger;
     statistics = new CondDepGraphBuilderStatistics();
   }
@@ -177,8 +176,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
   private BiMap<CFAEdge, EdgeVtx> buildDependenceGraphNodes() {
     HashBiMap<CFAEdge, EdgeVtx> tmpDGNode = HashBiMap.create();
     EdgeSharedVarAccessExtractor extractor =
-        new EdgeSharedVarAccessExtractor(
-            specialBlockFunctionPairs, specialSelfBlockFunction, cloneFunction, logger);
+        new EdgeSharedVarAccessExtractor(specialBlockFunctionPairs, specialSelfBlockFunction);
     Set<CFANode> visitedNodes = new HashSet<>();
 
     Pair<Set<FunctionEntryNode>, Set<FunctionEntryNode>> funcSplit = splitSelfBlockFunction(cfa);
