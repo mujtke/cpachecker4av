@@ -19,49 +19,19 @@
  */
 package org.ictt_lab.util.globalinfo;
 
-import com.google.common.base.Predicates;
-import java.io.IOException;
-import java.io.Writer;
-import java.nio.charset.Charset;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import org.sosy_lab.common.io.MoreFiles;
-import org.sosy_lab.cpachecker.core.reachedset.ReachedSet;
-import org.sosy_lab.cpachecker.cpa.arg.ARGState;
-import org.sosy_lab.cpachecker.cpa.arg.ARGToDotWriter;
-import org.sosy_lab.cpachecker.cpa.arg.ARGUtils;
-import org.sosy_lab.cpachecker.util.BiPredicates;
-import org.sosy_lab.cpachecker.util.Pair;
-
-/**
- * This class provides some global static functions.
- */
+/** This class preserves some global informations that may need by some CPAs. */
 public class GlobalInfo {
 
-  @SuppressWarnings("deprecation")
-  public static void exportARG(final ReachedSet pReachedSet, String pFileName) {
-    assert pReachedSet != null && pFileName != null && !pFileName.isEmpty();
+  private static GlobalInfo instance;
 
-    // 获取根状态和最终状态.
-    ARGState rootState = (ARGState) pReachedSet.getFirstState(),
-        finalState = (ARGState) pReachedSet.getLastState();
-    // 提取反例路径上的状态对.
-    List<Pair<ARGState, ARGState>> cexpStatePairs =
-        finalState.isTarget()
-            ? ARGUtils.getOnePathTo(finalState).getStatePairs()
-            : new ArrayList<>();
-    // 导出ARG.
-    try (Writer w = MoreFiles.openOutputFile(Paths.get(pFileName), Charset.defaultCharset())) {
-      ARGToDotWriter.write(
-          w,
-          rootState,
-          ARGState::getChildren,
-          Predicates.alwaysTrue(),
-          BiPredicates.pairIn(cexpStatePairs));
-    } catch (IOException e) {
-      e.printStackTrace();
+  private GlobalInfo() {}
+
+  public static synchronized GlobalInfo getInstance() {
+    if (instance == null) {
+      instance = new GlobalInfo();
     }
+    return instance;
   }
+
 
 }
