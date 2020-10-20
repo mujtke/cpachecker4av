@@ -30,7 +30,9 @@ import com.google.common.collect.Table;
 import com.google.common.collect.Table.Cell;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.sosy_lab.cpachecker.util.dependencegraph.DependenceGraph.DependenceType;
 
 /** Util methods for exporting {@link DependenceGraph DependenceGraphs}. */
@@ -39,7 +41,7 @@ public class DGExporter {
   public static void generateDOT(final Appendable pW, final DependenceGraph pDg)
       throws IOException {
     List<String> nodes = new ArrayList<>();
-    List<String> edges = new ArrayList<>();
+    Set<String> edges = new HashSet<>();
     DGNodeDotFormatter nodeFormatter = new DGNodeDotFormatter();
     Table<DGNode, DGNode, DependenceType> adjacencyMatrix = pDg.getMatrix();
 
