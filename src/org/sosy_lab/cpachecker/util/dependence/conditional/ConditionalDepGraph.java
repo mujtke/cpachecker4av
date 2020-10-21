@@ -92,7 +92,22 @@ public class ConditionalDepGraph extends DependenceGraph {
 
   @Override
   public Object dep(DGNode n1, DGNode n2) {
-    return depGraph.get(n1, n2);
+    // the two nodes are independent.
+    if (n1 == null || n2 == null) {
+      return null;
+    }
+
+    // the two nodes may independent.
+    // since we only preserved the upper right triangle of the dependence graph, we at most need to
+    // compare twice.
+    CondDepConstraints n1n2 = depGraph.get(n1, n2);
+    if (n1n2 != null) {
+      return n1n2;
+    }
+    return depGraph.get(n2, n1);
   }
 
+  public DGNode getDGNode(final CFAEdge pEdge) {
+    return nodes.get(pEdge);
+  }
 }

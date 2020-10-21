@@ -22,6 +22,7 @@ package org.sosy_lab.cpachecker.util.dependencegraph;
 import com.google.common.collect.Sets;
 import java.util.HashSet;
 import java.util.Set;
+import org.sosy_lab.cpachecker.cfa.ast.AExpression;
 import org.sosy_lab.cpachecker.cfa.ast.FileLocation;
 import org.sosy_lab.cpachecker.cfa.ast.c.CArraySubscriptExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CBinaryExpression;
@@ -38,6 +39,7 @@ import org.sosy_lab.cpachecker.cfa.types.c.CSimpleType;
 import org.sosy_lab.cpachecker.cfa.types.c.CType;
 import org.sosy_lab.cpachecker.util.Pair;
 import org.sosy_lab.cpachecker.util.dependence.conditional.CondDepConstraints;
+import org.sosy_lab.cpachecker.util.dependence.conditional.EdgeSharedVarAccessExtractor.VarVisitor;
 import org.sosy_lab.cpachecker.util.dependence.conditional.EdgeVtx;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ExpToStringVisitor;
 import org.sosy_lab.cpachecker.util.dependence.conditional.Var;
@@ -143,20 +145,42 @@ public class DepConstraintBuilder {
 
     for (Pair<Var, Var> ptrPair : pPointerSet) {
       Var lhsVar = ptrPair.getFirst(), rhsVar = ptrPair.getSecond();
-      CType type = lhsVar.getVarType();
-      CExpression lhs = ((CPointerExpression) (lhsVar.getExp())).getOperand();
-      CExpression rhs = ((CPointerExpression) (rhsVar.getExp())).getOperand();
-      String cstDescription = lhs.accept(exprVisitor) + " = " + rhs.accept(exprVisitor);
+      // special for pointer types.
+      CExpression lhsCmpExp = (CExpression) handlePointerVarExp(lhsVar.getExp()),
+          rhsCmpExp = (CExpression) handlePointerVarExp(rhsVar.getExp());
+      // this step should be promised by function call pointerVarSetIntersect(...).
+      assert lhsCmpExp.getExpressionType().equals(rhsCmpExp.getExpressionType());
+      CType type = lhsCmpExp.getExpressionType();
+      String cstDescription = lhsCmpExp.accept(exprVisitor) + " = " + rhsCmpExp.accept(exprVisitor);
+
+      // short cut.
+      if (lhsCmpExp.equals(rhsCmpExp)) {
+        return CondDepConstraints.unCondDepConstraint;
+      }
 
       ptrConstraints.add(
           Pair.of(
               new CBinaryExpression(
-                  FileLocation.DUMMY, type, type, lhs, rhs, BinaryOperator.EQUALS),
+                  FileLocation.DUMMY, type, type, lhsCmpExp, rhsCmpExp, BinaryOperator.EQUALS),
               cstDescription));
     }
 
     return new CondDepConstraints(ptrConstraints, false);
   }
+
+  private AExpression handlePointerVarExp(AExpression pExp) {
+    if(pExp instanceof CPointerExpression) {
+      return pExp;
+    } else if(pExp instanceof CArraySubscriptExpression) {
+      Set<Var> vars = ((CArraySubscriptExpression) pExp).getArrayExpression().accept(VarVisitor.instance);
+      assert vars.size() == 1;
+      return handlePointerVarExp(vars.iterator().next().getExp());
+    }
+    // other cases, we do not know its real pointer expression.
+    // TODO special process for this expression.
+    return pExp;
+  }
+
 
   /**
    * This function generates the common variable pairs of these two sets.
@@ -178,7 +202,8 @@ public class DepConstraintBuilder {
     // only compare the type of these two global variables.
     for (Var v1 : pSet1) {
       for (Var v2 : pSet2) {
-        if (v1.getVarType().canBeAssignedFrom(v2.getVarType())) {
+        CType v1Type = v1.getVarType(), v2Type = v2.getVarType();
+        if (v1Type.canBeAssignedFrom(v2Type) || v1Type.equals(v2Type)) {
           result.add(Pair.of(v1, v2));
         }
       }
@@ -227,16 +252,35 @@ public class DepConstraintBuilder {
 
     for(Pair<Var, Var> arrPair : pArrPairs) {
       Var lhsVar = arrPair.getFirst(), rhsVar = arrPair.getSecond();
-      CType type = lhsVar.getVarType();
-      CExpression lhs = ((CArraySubscriptExpression) (lhsVar.getExp())).getSubscriptExpression();
-      CExpression rhs = ((CArraySubscriptExpression) (rhsVar.getExp())).getSubscriptExpression();
-      String cstDescription = lhs.accept(exprVisitor) + " = " + rhs.accept(exprVisitor);
+      // special for array types.
+      CExpression lhsVarExp = (CExpression) lhsVar.getExp(),
+          rhsVarExp = (CExpression) rhsVar.getExp();
 
-      arrConstraints.add(
-          Pair.of(
-              new CBinaryExpression(
-                  FileLocation.DUMMY, type, type, lhs, rhs, BinaryOperator.EQUALS),
-              cstDescription));
+      if (lhsVarExp instanceof CArraySubscriptExpression
+          && rhsVarExp instanceof CArraySubscriptExpression) {
+        CExpression lhsCmpExp = ((CArraySubscriptExpression) lhsVarExp).getSubscriptExpression();
+        CExpression rhsCmpExp = ((CArraySubscriptExpression) rhsVarExp).getSubscriptExpression();
+        // we use subscript expression type as the final type.
+        CType type = lhsCmpExp.getExpressionType();
+        String cstDescription =
+            lhsCmpExp.accept(exprVisitor) + " = " + rhsCmpExp.accept(exprVisitor);
+
+        // short cut.
+        if (lhsCmpExp.equals(rhsCmpExp)) {
+          return CondDepConstraints.unCondDepConstraint;
+        }
+
+        arrConstraints.add(
+            Pair.of(
+                new CBinaryExpression(
+                    FileLocation.DUMMY, type, type, lhsCmpExp, rhsCmpExp, BinaryOperator.EQUALS),
+                cstDescription));
+      } else {
+        // the two variables may have no array subscript expression, we assume that they
+        // un-conditional dependent (note: they have common variable name but different expression,
+        // e.g., (1) int a[10]; (2) a;).
+        return CondDepConstraints.unCondDepConstraint;
+      }
     }
 
     return new CondDepConstraints(arrConstraints, false);
@@ -253,6 +297,7 @@ public class DepConstraintBuilder {
    */
   private Set<Pair<Var, Var>> arrayVarSetIntersect(Set<Var> pSet1, Set<Var> pSet2) {
     Set<Pair<Var, Var>> result = new HashSet<>();
+    Class<CArrayType> arrType = CArrayType.class;
 
     // short cut.
     if (pSet1.isEmpty() || pSet2.isEmpty()) {
@@ -262,7 +307,9 @@ public class DepConstraintBuilder {
     // only compare the name of these two global variables.
     for (Var v1 : pSet1) {
       for (Var v2 : pSet2) {
-        if (v1.getName().equals(v2.getName())) {
+        if (v1.getName().equals(v2.getName()) // common array base.
+            && arrType.isInstance(v1.getVarType()) // both array type.
+            && arrType.isInstance(v2.getVarType())) {
           result.add(Pair.of(v1, v2));
         }
       }

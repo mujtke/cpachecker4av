@@ -25,6 +25,8 @@ import com.google.common.collect.Sets;
 import java.util.Set;
 import java.util.function.BiFunction;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
+import org.sosy_lab.cpachecker.cfa.types.c.CArrayType;
+import org.sosy_lab.cpachecker.cfa.types.c.CPointerType;
 import org.sosy_lab.cpachecker.util.dependence.DGNode;
 
 public class EdgeVtx implements DGNode {
@@ -80,6 +82,14 @@ public class EdgeVtx implements DGNode {
     return new EdgeVtx(edge, tmpGRVars, tmpGWVars, simpleEdgeVtx);
   }
 
+  /**
+   * Get all the read variables by type.
+   *
+   * @param pType The target type.
+   * @return The set of read variables with type pType.
+   * @implNote We need to process the two special cases of {@link CPointerType} and {@link
+   *     CArrayType}.
+   */
   public Set<Var> getReadVarsByType(Class<?> pType) {
     return from(gReadVars).filter(v -> pType.isInstance(v.getVarType())).toSet();
   }

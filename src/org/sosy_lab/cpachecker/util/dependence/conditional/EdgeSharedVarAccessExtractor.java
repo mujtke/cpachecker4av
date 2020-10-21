@@ -419,9 +419,9 @@ public class EdgeSharedVarAccessExtractor {
   }
 
   /** Expression Level */
-  private static class VarVisitor extends DefaultCExpressionVisitor<Set<Var>, NoException> {
+  public static class VarVisitor extends DefaultCExpressionVisitor<Set<Var>, NoException> {
 
-    static final VarVisitor instance = new VarVisitor();
+    public static final VarVisitor instance = new VarVisitor();
 
     /**
      * This function returns a set of variables (array and its subscript).
@@ -489,12 +489,13 @@ public class EdgeSharedVarAccessExtractor {
     public Set<Var> visit(CUnaryExpression pE) throws NoException {
       CExpression operand = pE.getOperand();
 
-      Set<Var> var = operand.accept(this);
-      return var.isEmpty() ? Set.of() : Set.of(replace(var.iterator().next(), pE));
+      Set<Var> vars = operand.accept(this);
+      return vars.isEmpty() ? Set.of() : Set.of(replace(vars.iterator().next(), pE));
     }
 
     @Override
     public Set<Var> visit(CPointerExpression pE) throws NoException {
+      //      return pE.getOperand().accept(this);
       Set<Var> var = pE.getOperand().accept(this);
       return var.isEmpty() ? Set.of() : Set.of(replace(var.iterator().next(), pE));
     }

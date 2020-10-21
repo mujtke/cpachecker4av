@@ -95,7 +95,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
           "Whether consider to build the depedence relation for cloned functions. If this "
               + "option is enabled, the dependence graph will be huge but the exploration "
               + "time of ARG may be reduced.")
-  private boolean buildForClonedFunctions = false;
+  private boolean buildForClonedFunctions = true;
 
   @Option(
       secure = true,
@@ -119,6 +119,11 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
               + "decrease the size of the dependence graph)")
   private String mainFunctionName = "main";
 
+  @Option(
+      secure = true,
+      description =
+          "File to export dependence graph to. If `null`, dependence"
+              + " graph will not be exported as dot.")
   @FileOption(FileOption.Type.OUTPUT_FILE)
   private Path exportDot = Paths.get("./output/CondDependenceGraph.dot");
 
@@ -160,10 +165,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     depGraph = buildDependenceGraph(nodes);
     statistics.depGraphBuildTimer.stop();
 
-    ConditionalDepGraph cdg = new ConditionalDepGraph(nodes, depGraph);
-    export(cdg);
-
-    return cdg;
+    return new ConditionalDepGraph(nodes, depGraph);
   }
 
   /**
@@ -632,25 +634,28 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
 
   @Override
   public void collectStatistics(Collection<Statistics> pStatsCollection) {
-    pStatsCollection.add(
-        new Statistics() {
+    pStatsCollection.add(getCondDepGraphBuildStatistics());
+  }
 
-          @Override
-          public void printStatistics(
-              PrintStream pOut, Result pResult, UnmodifiableReachedSet pReached) {
-            if (statistics.depGraphBuildTimer.getUpdateCount() > 0) {
-              put(pOut, 0, statistics.nodeBuildTimer);
-              put(pOut, 0, statistics.depGraphBuildTimer);
-              put(pOut, 1, statistics.gVarAccessNodeNumber);
-              put(pOut, 1, statistics.depNodePairNumber);
-              put(pOut, 1, statistics.unCondDepNodePairNumber);
-            }
-          }
+  public Statistics getCondDepGraphBuildStatistics() {
+    return new Statistics() {
 
-          @Override
-          public @Nullable String getName() {
-            return ""; // empty name for nice output under CFACreator statistics.
-          }
-        });
+      @Override
+      public void printStatistics(
+          PrintStream pOut, Result pResult, UnmodifiableReachedSet pReached) {
+        if (statistics.depGraphBuildTimer.getUpdateCount() > 0) {
+          put(pOut, 0, statistics.nodeBuildTimer);
+          put(pOut, 0, statistics.depGraphBuildTimer);
+          put(pOut, 1, statistics.gVarAccessNodeNumber);
+          put(pOut, 1, statistics.depNodePairNumber);
+          put(pOut, 1, statistics.unCondDepNodePairNumber);
+        }
+      }
+
+      @Override
+      public @Nullable String getName() {
+        return ""; // empty name for nice output under CFACreator statistics.
+      }
+    };
   }
 }
