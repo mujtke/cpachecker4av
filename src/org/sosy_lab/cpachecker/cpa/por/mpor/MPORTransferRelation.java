@@ -19,10 +19,13 @@
  */
 package org.sosy_lab.cpachecker.cpa.por.mpor;
 
+import static com.google.common.collect.FluentIterable.from;
+
 import com.google.common.collect.ImmutableSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import org.sosy_lab.common.configuration.Configuration;
 import org.sosy_lab.common.configuration.InvalidConfigurationException;
 import org.sosy_lab.common.log.LogManager;
@@ -36,6 +39,7 @@ import org.sosy_lab.cpachecker.core.interfaces.Statistics;
 import org.sosy_lab.cpachecker.cpa.locationss.LocationsCPA;
 import org.sosy_lab.cpachecker.cpa.locationss.LocationsState;
 import org.sosy_lab.cpachecker.exceptions.CPATransferException;
+import org.sosy_lab.cpachecker.util.Pair;
 import org.sosy_lab.cpachecker.util.dependence.DGNode;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraphBuilder;
@@ -78,35 +82,43 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
       String transThreadId = newLocs.getTransferThreadId();
 
       Map<String, Integer> oldThreadIdNumbers = curState.getThreadIdNumbers();
-      if (!oldThreadIdNumbers.containsKey(transThreadId)) {
-        // new thread is created.
-        int newThreadIdNumber = curState.getThreadCounter() + 1;
-        CFAEdge newTransInEdge = pCfaEdge;
+      // update the map of thread id number.
+      Pair<Integer, Map<String, Integer>> newThreadIdInfo =
+          updateThreadIdNumber(curState.getThreadCounter(), oldThreadIdNumbers, newLocs);
+      int newThreadCounter = newThreadIdInfo.getFirst();
+      Map<String, Integer> newThreadIdNumbers = newThreadIdInfo.getSecond();
 
-        if (canSkip(oldThreadIdNumber, oldTransferEdge, newThreadIdNumber, newTransInEdge)) {
-          return ImmutableSet.of();
-        }
-
-        // update the map of thread id number.
-        Map<String, Integer> newThreadIdNumbers = new HashMap<>(oldThreadIdNumbers);
-        newThreadIdNumbers.put(transThreadId, newThreadIdNumber);
-
-        return ImmutableSet.of(
-            new MPORState(
-                curState.getThreadCounter() + 1, newTransInEdge, newLocs, newThreadIdNumbers));
-      } else {
-        int newThreadIdNumber = oldThreadIdNumbers.get(transThreadId);
-        CFAEdge newTransInEdge = pCfaEdge;
-
-        if (canSkip(oldThreadIdNumber, oldTransferEdge, newThreadIdNumber, newTransInEdge)) {
-          return ImmutableSet.of();
-        }
-
-        return ImmutableSet.of(
-            new MPORState(
-                curState.getThreadCounter(), newTransInEdge, newLocs, oldThreadIdNumbers));
+      if (canSkip(
+          oldThreadIdNumber, oldTransferEdge, newThreadIdNumbers.get(transThreadId), pCfaEdge)) {
+        return ImmutableSet.of();
       }
+
+      return ImmutableSet.of(
+          new MPORState(newThreadCounter, pCfaEdge, newLocs, newThreadIdNumbers));
     }
+  }
+
+  private Pair<Integer, Map<String, Integer>> updateThreadIdNumber(
+      int pOldThreadCounter,
+      final Map<String, Integer> pOldTidNumber,
+      final LocationsState pNewLocs) {
+    Map<String, Integer> newTidNumber = new HashMap<>(pOldTidNumber);
+
+    // remove exited threads.
+    Set<String> newThreadIds = pNewLocs.getMultiThreadState().getThreadIds();
+    ImmutableSet<String> removeTids =
+        from(newTidNumber.keySet()).filter(t -> !newThreadIds.contains(t)).toSet();
+    removeTids.forEach(t -> newTidNumber.remove(t));
+
+    // add new thread id.
+    ImmutableSet<String> addTids =
+        from(newThreadIds).filter(t -> !newTidNumber.containsKey(t)).toSet();
+    assert addTids.size() <= 1;
+    if (!addTids.isEmpty()) {
+      newTidNumber.put(addTids.iterator().next(), ++pOldThreadCounter);
+    }
+
+    return Pair.of(pOldThreadCounter, newTidNumber);
   }
 
   public boolean canSkip(int pPreTid, CFAEdge pPreEdge, int pSucTid, CFAEdge pSucEdge) {
