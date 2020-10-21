@@ -161,6 +161,15 @@ public class MultiThreadState implements AbstractStateWithLocation {
     return threads.size() > 0 ? threads.iterator().next() : null;
   }
 
+  public CFANode getThreadLocation(String pThrdName) {
+    if (locations.containsKey(pThrdName)) {
+      return locations.get(pThrdName).getLocationNode();
+    }
+
+    // not contain the given thread.
+    return null;
+  }
+
   /**
    * This function only check whether the two states are located at the same location.
    *
@@ -200,6 +209,10 @@ public class MultiThreadState implements AbstractStateWithLocation {
     res += ")";
 
     return res;
+  }
+
+  public String getTransThread() {
+    return transThread;
   }
 
   public void setTransThread(String pThread) {

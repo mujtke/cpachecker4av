@@ -134,6 +134,14 @@ public class LocationsState
     locations.setTransThread(pThread);
   }
 
+  public String getTransferThreadId() {
+    return locations.getTransThread();
+  }
+
+  public CFANode getTransferedThreadNode() {
+    return locations.getLocationNode();
+  }
+
   /**
    * This function only check whether the two states are located at the same location.
    *

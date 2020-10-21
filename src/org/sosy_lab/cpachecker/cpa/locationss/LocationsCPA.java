@@ -45,6 +45,11 @@ public class LocationsCPA extends AbstractCPA
     return AutomaticCPAFactory.forType(LocationsCPA.class);
   }
 
+  public static LocationsCPA create(Configuration pConfig, LogManager pLogger, CFA pCfa)
+      throws InvalidConfigurationException {
+    return new LocationsCPA(pConfig, pLogger, pCfa);
+  }
+
   public LocationsCPA(Configuration pConfig, LogManager pLogger, CFA pCfa)
       throws InvalidConfigurationException {
     super("sep", "sep", new LocationsTransferRelation(pConfig, pCfa));
