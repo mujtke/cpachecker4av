@@ -386,34 +386,55 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
       Set<CFANode> pVisitedNodes) {
     CFANode edgeSucNode = pEdge.getSuccessor();
 
-    // process self-block function call.
-    if (!(pEdge instanceof CFunctionSummaryStatementEdge)
-        && (pEdgeFunName != null)
-        && selfBlockFunVarCache.containsKey(pEdgeFunName)) {
-      // get the block parameter DGNode.
-      EdgeVtx selfBlockParamDGNode = (EdgeVtx) pExtractor.extractESVAInfo(pEdge);
-      // get the block content DGNode.
-      EdgeVtx selfBlockContentDGNode = selfBlockFunVarCache.get(pEdgeFunName);
-      // get the return node of this self-block function.
-      CFANode sucNode =
-          Preconditions.checkNotNull(pEdgePreNode.getLeavingSummaryEdge()).getSuccessor();
-      pWaitlist.add(sucNode);
+    // we do not need to process CFunctionSummaryStatementEdge.
+    if (!(pEdge instanceof CFunctionSummaryStatementEdge)) {
+      // process self-block function call.
+      if ((pEdgeFunName != null) && selfBlockFunVarCache.containsKey(pEdgeFunName)) {
+        // get the block parameter DGNode.
+        EdgeVtx selfBlockParamDGNode = (EdgeVtx) pExtractor.extractESVAInfo(pEdge);
+        // get the block content DGNode.
+        EdgeVtx selfBlockContentDGNode = selfBlockFunVarCache.get(pEdgeFunName);
+        // replace the function call edge of this DGNode, since other caller use pEdge to call the
+        // self-block function.
+        selfBlockParamDGNode =
+            selfBlockParamDGNode != null
+                ? new EdgeVtx(
+                    pEdge,
+                    selfBlockParamDGNode.getgReadVars(),
+                    selfBlockParamDGNode.getgWriteVars(),
+                    selfBlockParamDGNode.isSimpleEdgeVtx())
+                : null;
+        selfBlockContentDGNode =
+            selfBlockContentDGNode != null
+                ? new EdgeVtx(
+                    pEdge,
+                    selfBlockContentDGNode.getgReadVars(),
+                    selfBlockContentDGNode.getgWriteVars(),
+                    selfBlockContentDGNode.isSimpleEdgeVtx())
+                : null;
+        // get the return node of this self-block function.
+        CFANode sucNode =
+            Preconditions.checkNotNull(pEdgePreNode.getLeavingSummaryEdge()).getSuccessor();
+        pWaitlist.add(sucNode);
 
-      EdgeVtx resDGNode =
-          selfBlockContentDGNode != null
-              ? (selfBlockParamDGNode != null
-                  ? selfBlockContentDGNode.mergeGlobalRWVarsOnly(selfBlockParamDGNode)
-                  : selfBlockContentDGNode)
-              : selfBlockParamDGNode;
-      return resDGNode;
+        EdgeVtx resDGNode =
+            selfBlockContentDGNode != null
+                ? (selfBlockParamDGNode != null
+                    ? selfBlockContentDGNode.mergeGlobalRWVarsOnly(selfBlockParamDGNode)
+                    : selfBlockContentDGNode)
+                : selfBlockParamDGNode;
+        return resDGNode;
+      }
+
+      if (!pVisitedNodes.contains(edgeSucNode) && !(edgeSucNode instanceof FunctionExitNode)) {
+        pWaitlist.add(edgeSucNode);
+      }
+      pVisitedNodes.add(pEdgePreNode);
+
+      return (EdgeVtx) pExtractor.extractESVAInfo(pEdge);
     }
 
-    if (!pVisitedNodes.contains(edgeSucNode) && !(edgeSucNode instanceof FunctionExitNode)) {
-      pWaitlist.add(edgeSucNode);
-    }
-    pVisitedNodes.add(pEdgePreNode);
-
-    return (EdgeVtx) pExtractor.extractESVAInfo(pEdge);
+    return null;
   }
 
   /**
