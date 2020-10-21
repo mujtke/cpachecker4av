@@ -359,6 +359,7 @@ public class EdgeSharedVarAccessExtractor {
         return extractFunctionCall(ast);
       } else if (ast instanceof CExpressionStatement) {
         // we only process the function call and assignment statement.
+        return emptyRWVarSet;
       }
 
     } else if (ast instanceof CReturnStatement) {
