@@ -86,7 +86,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
       description =
           "Whether to consider conditional dependencies. If not, then two depedent "
               + "nodes will allways be un-conditionally dependent.")
-  private boolean useConditionalDep = true;
+  private boolean useConditionalDep = false;
 
   @Option(
       secure = true,
