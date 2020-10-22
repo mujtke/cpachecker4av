@@ -49,7 +49,6 @@ public class MPORState implements AbstractState {
         new SingleThreadState(pInitNode, ThreadOperator.MIN_THREAD_NUM);
     Map<String, SingleThreadState> locsMap = new HashMap<>();
     locsMap.put(pMainThreadId, mainLocState);
-    MultiThreadState threadLocs = new MultiThreadState(locsMap, pMainThreadId, pIsFollowFunCalls);
     LocationsState initThreadLocs = new LocationsState(locsMap, pMainThreadId, pIsFollowFunCalls);
 
     Map<String, Integer> initThreadIdNumbers = new HashMap<>();
