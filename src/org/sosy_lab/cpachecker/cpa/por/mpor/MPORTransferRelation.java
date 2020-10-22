@@ -31,6 +31,7 @@ import org.sosy_lab.common.configuration.InvalidConfigurationException;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
+import org.sosy_lab.cpachecker.cfa.model.FunctionEntryNode;
 import org.sosy_lab.cpachecker.core.defaults.SingleEdgeTransferRelation;
 import org.sosy_lab.cpachecker.core.defaults.SingletonPrecision;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
@@ -81,6 +82,10 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
       LocationsState newLocs = (LocationsState) newStates.iterator().next();
       String transThreadId = newLocs.getTransferThreadId();
 
+      boolean isThreadCreatedOrExited =
+          newLocs.getMultiThreadState().getThreadIds().size()
+              != curState.getThreadLocs().getMultiThreadState().getThreadIds().size();
+
       Map<String, Integer> oldThreadIdNumbers = curState.getThreadIdNumbers();
       // update the map of thread id number.
       Pair<Integer, Map<String, Integer>> newThreadIdInfo =
@@ -89,7 +94,11 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
       Map<String, Integer> newThreadIdNumbers = newThreadIdInfo.getSecond();
 
       if (canSkip(
-          oldThreadIdNumber, oldTransferEdge, newThreadIdNumbers.get(transThreadId), pCfaEdge)) {
+          oldThreadIdNumber,
+          oldTransferEdge,
+          newThreadIdNumbers.get(transThreadId),
+          pCfaEdge,
+          isThreadCreatedOrExited)) {
         return ImmutableSet.of();
       }
 
@@ -121,10 +130,28 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
     return Pair.of(pOldThreadCounter, newTidNumber);
   }
 
-  public boolean canSkip(int pPreTid, CFAEdge pPreEdge, int pSucTid, CFAEdge pSucEdge) {
+  /**
+   * This function determines whether the successor edge pSucEdge could be avoid to explore.
+   *
+   * @param pPreTid The thread-counter of precursor thread that executes pPreEdge.
+   * @param pPreEdge The edge executed by the thread with thread-counter pPreTid.
+   * @param pSucTid The thread-counter of successor thread that executes pSucEdge.
+   * @param pSucEdge The edge executed by the thread with thread-counter pSucTid.
+   * @return Return true if: 1) pSucTid < pPreTid (monotonic property 1); 2) the two edges are
+   *     independent; 3) the precursor edge pPreEdge could not induces a back edge in the thread's
+   *     control flow.
+   */
+  public boolean canSkip(
+      int pPreTid,
+      CFAEdge pPreEdge,
+      int pSucTid,
+      CFAEdge pSucEdge,
+      boolean pThreadCreatedOrExited) {
     DGNode depPreNode = condDepGraph.getDGNode(pPreEdge), depSucNode = condDepGraph.getDGNode(pSucEdge);
 
-    if ((pSucTid < pPreTid)
+    if (!pThreadCreatedOrExited
+        && !(pSucEdge.getPredecessor() instanceof FunctionEntryNode)
+        && (pSucTid < pPreTid)
         && (condDepGraph.dep(depPreNode, depSucNode) == null)
         && !pPreEdge.getSuccessor().isLoopStart()) {
       return true;
