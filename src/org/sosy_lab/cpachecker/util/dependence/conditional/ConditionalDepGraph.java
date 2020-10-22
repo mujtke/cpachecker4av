@@ -19,6 +19,7 @@
  */
 package org.sosy_lab.cpachecker.util.dependence.conditional;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.Table;
 import java.io.IOException;
@@ -26,7 +27,10 @@ import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
+import java.util.Map.Entry;
 import org.sosy_lab.common.io.IO;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
 import org.sosy_lab.cpachecker.util.dependence.DGNode;
@@ -84,6 +88,24 @@ public class ConditionalDepGraph extends DependenceGraph {
     if (exportPath != null) {
       try (Writer w = IO.openOutputFile(exportPath, Charset.defaultCharset())) {
         CondDepGraphExporter.generateDOT(w, this);
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
+  }
+
+  public void exportNodes(String pFilePath) {
+    Path exportPath = Paths.get(pFilePath);
+
+    if (exportPath != null) {
+      try (Writer w = IO.openOutputFile(exportPath, Charset.defaultCharset())) {
+        List<String> info = new ArrayList<>();
+
+        for (Entry<CFAEdge, EdgeVtx> node : nodes.entrySet()) {
+          info.add(node.getKey() + "\t" + node.getValue());
+        }
+        Joiner.on("\n").appendTo(w, info);
+
       } catch (IOException e) {
         e.printStackTrace();
       }
