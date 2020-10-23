@@ -102,12 +102,12 @@ public class ThreadOperator {
             .filter(tl -> threadLocMap.get(tl).getLocationNode().equals(edgePreLoc))
             .toSet();
     // only one thread is located at edgePreLoc.
-    assert edgeThread.size() == 1 : "invalid edge for the locations state: "
-        + pState
-        + "\tedge: "
-        + pCfaEdge;
+    assert edgeThread.size() <= 1
+        : "multiple active threads are not allowed: " + pState + "\tedge: " + pCfaEdge;
+    // then either the same function is called in different threads -> not supported.
+    // (or CompositeCPA and ThreadingCPA do not work together)
 
-    return edgeThread.iterator().next();
+    return edgeThread.isEmpty() ? null : edgeThread.iterator().next();
   }
 
   /**

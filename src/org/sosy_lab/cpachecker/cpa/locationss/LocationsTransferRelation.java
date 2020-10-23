@@ -21,6 +21,7 @@ package org.sosy_lab.cpachecker.cpa.locationss;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -132,6 +133,10 @@ public class LocationsTransferRelation implements TransferRelation {
 
     // get the active thread.
     String activeThread = threadOptr.getThreadIdThroughEdge(locsState, pCfaEdge);
+    if (activeThread == null) {
+      return ImmutableSet.of();
+    }
+
     // check that whether a new thread should be created, and try to generate the new thread
     // location instance if pCfaEdge is a thread creation edge.
     Pair<String, SingleThreadState> newThreadInstance =
