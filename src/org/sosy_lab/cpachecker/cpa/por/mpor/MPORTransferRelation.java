@@ -107,6 +107,20 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
     }
   }
 
+  /**
+   * This function is used for synchronize the thread id number of pNewLocs and pOldTidNumber. If a
+   * new thread is created, we update pOldThreadCounter and put the newly created thread id pair
+   * into the threadIdNumbers; if a thread is exit, we remove the exited thread pair; otherwise, we
+   * do nothing.
+   *
+   * @param pOldThreadCounter The old thread counter, if new thread is created, this counter will be
+   *     added 1.
+   * @param pOldTidNumber The old thread id number map.
+   * @param pNewLocs The newly generated thread locations.
+   * @return This function returns a pair, the first component indicates the threadCounter of the
+   *     new {@link MPORState} (thread creation will modify this value), and the second component
+   *     indicates the map of synchronized thread id number.
+   */
   private Pair<Integer, Map<String, Integer>> updateThreadIdNumber(
       int pOldThreadCounter,
       final Map<String, Integer> pOldTidNumber,
@@ -137,9 +151,15 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
    * @param pPreEdge The edge executed by the thread with thread-counter pPreTid.
    * @param pSucTid The thread-counter of successor thread that executes pSucEdge.
    * @param pSucEdge The edge executed by the thread with thread-counter pSucTid.
+   * @param pThreadCreatedOrExited Whether the transfered edge induce an action of thread creation
+   *     or exit.
    * @return Return true if: 1) pSucTid < pPreTid (monotonic property 1); 2) the two edges are
    *     independent; 3) the precursor edge pPreEdge could not induces a back edge in the thread's
-   *     control flow.
+   *     control flow; 4) the transfered edge does not induce thread creation or exit; 5) skip the
+   *     starting edge of a created thread.
+   * @implNote Notice that, the three constraints 3), 4) and 5) are used for confining the
+   *     utilization of MPOR into the normal states, i.e., avoids the application of MPOR out of
+   *     bounds.
    */
   public boolean canSkip(
       int pPreTid,

@@ -94,6 +94,7 @@ public class ConditionalDepGraph extends DependenceGraph {
     }
   }
 
+  @SuppressWarnings("resource")
   public void exportNodes(String pFilePath) {
     Path exportPath = Paths.get(pFilePath);
 
@@ -127,6 +128,10 @@ public class ConditionalDepGraph extends DependenceGraph {
       return n1n2;
     }
     return depGraph.get(n2, n1);
+  }
+
+  public boolean contains(final CFAEdge pEdge) {
+    return nodes.containsKey(pEdge);
   }
 
   public DGNode getDGNode(final CFAEdge pEdge) {
