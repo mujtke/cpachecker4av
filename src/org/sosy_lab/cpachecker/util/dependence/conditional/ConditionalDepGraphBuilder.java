@@ -82,7 +82,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
 
   @Option(
       secure = true,
-      name = "use",
+      name = "useCondDep",
       description =
           "Whether to consider conditional dependencies. If not, then two depedent "
               + "nodes will allways be un-conditionally dependent.")
@@ -90,11 +90,11 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
 
   @Option(
       secure = true,
-      name = "buildclonedfunc",
+      name = "buildClonedFunc",
       description =
-          "Whether consider to build the depedence relation for cloned functions. If this "
-              + "option is enabled, the dependence graph will be huge but the exploration "
-              + "time of ARG may be reduced.")
+          "Whether consider to build the depedence relation for cloned functions (this option "
+              + "is mainly used for debugging). If not enabled, the conditional dependence "
+              + "graph is incompelete, and it could not be used in program verification!")
   private boolean buildForClonedFunctions = true;
 
   @Option(
@@ -165,7 +165,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     depGraph = buildDependenceGraph(nodes);
     statistics.depGraphBuildTimer.stop();
 
-    return new ConditionalDepGraph(nodes, depGraph);
+    return new ConditionalDepGraph(nodes, depGraph, buildForClonedFunctions, useConditionalDep);
   }
 
   /**

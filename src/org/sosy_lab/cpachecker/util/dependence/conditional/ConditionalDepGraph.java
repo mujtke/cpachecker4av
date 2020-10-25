@@ -45,13 +45,19 @@ import org.sosy_lab.cpachecker.util.dependence.DependenceGraph;
  */
 public class ConditionalDepGraph extends DependenceGraph {
 
+  private final boolean complete;
+  private final boolean useCondDep;
   private BiMap<CFAEdge, EdgeVtx> nodes;
   private Table<EdgeVtx, EdgeVtx, CondDepConstraints> depGraph;
 
   public ConditionalDepGraph(
       final BiMap<CFAEdge, EdgeVtx> pNodes,
-      final Table<EdgeVtx, EdgeVtx, CondDepConstraints> pDepGraph) {
+      final Table<EdgeVtx, EdgeVtx, CondDepConstraints> pDepGraph,
+      boolean pComplete,
+      boolean pUseCondDep) {
     assert pNodes != null && pDepGraph != null;
+    complete = pComplete;
+    useCondDep = pUseCondDep;
     nodes = pNodes;
     depGraph = pDepGraph;
   }
@@ -75,6 +81,14 @@ public class ConditionalDepGraph extends DependenceGraph {
 
   public Collection<CFAEdge> getAllEdges() {
     return nodes.keySet();
+  }
+
+  public boolean isUseCondDep() {
+    return useCondDep;
+  }
+
+  public boolean isComplete() {
+    return complete;
   }
 
   public CondDepConstraints getCondDepConstraints(final CFAEdge e1, final CFAEdge e2) {
@@ -115,6 +129,12 @@ public class ConditionalDepGraph extends DependenceGraph {
 
   @Override
   public Object dep(DGNode n1, DGNode n2) {
+    if (!complete) {
+      throw new AssertionError(
+          "the conditional dependence graph is incomplete, please make "
+              + "sure that the option 'depgraph.cond.buildClonedFunc' is enabled");
+    }
+
     // the two nodes are independent.
     if (n1 == null || n2 == null) {
       return null;
