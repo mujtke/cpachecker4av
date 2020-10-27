@@ -154,11 +154,6 @@ public class IMPORPrecisionAdjustment implements PrecisionAdjustment {
         return Optional.of(
             PrecisionAdjustmentResult.create(
                 pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
-      } else if (!imporParState.isMporPoint() && imporCurState.isMporPoint()) {
-        // for MPOR entry.
-        return Optional.of(
-            PrecisionAdjustmentResult.create(
-                pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
       } else {
         // for not MPOR point.
         assert gvaSuccessors.isEmpty();
