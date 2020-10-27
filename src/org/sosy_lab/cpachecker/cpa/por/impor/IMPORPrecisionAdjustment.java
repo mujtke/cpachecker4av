@@ -38,6 +38,7 @@ import org.sosy_lab.cpachecker.cpa.arg.ARGState;
 import org.sosy_lab.cpachecker.cpa.por.impor.IMPORState.EdgeType;
 import org.sosy_lab.cpachecker.exceptions.CPAException;
 import org.sosy_lab.cpachecker.util.AbstractStates;
+import org.sosy_lab.cpachecker.util.Triple;
 import org.sosy_lab.cpachecker.util.dependence.DGNode;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
 
@@ -45,6 +46,8 @@ public class IMPORPrecisionAdjustment implements PrecisionAdjustment {
 
   private final ConditionalDepGraph condDepGraph;
   private final Map<Integer, Integer> nExploredChildCache;
+  private final Map<Integer, Triple<Set<ARGState>, Set<ARGState>, Set<ARGState>>>
+      parentTypedChildCache;
 
   private static final Function<ARGState, Set<ARGState>> gvaEdgeFilter =
       (s) ->
@@ -77,6 +80,7 @@ public class IMPORPrecisionAdjustment implements PrecisionAdjustment {
   public IMPORPrecisionAdjustment(ConditionalDepGraph pCondDepGraph) {
     condDepGraph = checkNotNull(pCondDepGraph);
     nExploredChildCache = new HashMap<>();
+    parentTypedChildCache = new HashMap<>();
   }
 
   @Override
@@ -97,9 +101,20 @@ public class IMPORPrecisionAdjustment implements PrecisionAdjustment {
 
       // checkout whether all the successor edges of argParState are GVAEdge, if true, we mark the
       // argCurState and argParState as a MPOR point.
-      Set<ARGState> gvaSuccessors = gvaEdgeFilter.apply(argParState),
-          naSuccessors = naEdgeFilter.apply(argParState),
-          nSuccessors = nEdgeFilter.apply(argParState);
+      Set<ARGState> gvaSuccessors, naSuccessors, nSuccessors;
+      if (parentTypedChildCache.containsKey(argParStateId)) {
+        Triple<Set<ARGState>, Set<ARGState>, Set<ARGState>> typedChildCache =
+            parentTypedChildCache.get(argParStateId);
+        gvaSuccessors = typedChildCache.getFirst();
+        naSuccessors = typedChildCache.getSecond();
+        nSuccessors = typedChildCache.getThird();
+      } else {
+        gvaSuccessors = gvaEdgeFilter.apply(argParState);
+        naSuccessors = naEdgeFilter.apply(argParState);
+        nSuccessors = nEdgeFilter.apply(argParState);
+        parentTypedChildCache.put(
+            argParStateId, Triple.of(gvaSuccessors, naSuccessors, nSuccessors));
+      }
 
       // update the mark of Inf/MPOR point of the current and parent states.
       boolean parStateMPORPoint =
