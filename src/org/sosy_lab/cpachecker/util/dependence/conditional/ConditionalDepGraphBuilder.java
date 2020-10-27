@@ -62,6 +62,7 @@ import org.sosy_lab.cpachecker.cfa.model.CFANode;
 import org.sosy_lab.cpachecker.cfa.model.FunctionCallEdge;
 import org.sosy_lab.cpachecker.cfa.model.FunctionEntryNode;
 import org.sosy_lab.cpachecker.cfa.model.FunctionExitNode;
+import org.sosy_lab.cpachecker.cfa.model.FunctionSummaryEdge;
 import org.sosy_lab.cpachecker.cfa.model.c.CDeclarationEdge;
 import org.sosy_lab.cpachecker.cfa.model.c.CFunctionSummaryStatementEdge;
 import org.sosy_lab.cpachecker.core.CPAcheckerResult.Result;
@@ -94,7 +95,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
       description =
           "Whether consider to build the depedence relation for cloned functions (this option "
               + "is mainly used for debugging). If not enabled, the conditional dependence "
-              + "graph is incompelete, and it could not be used in program verification!")
+              + "graph is incompelete, and it should not be used in program verification!")
   private boolean buildForClonedFunctions = true;
 
   @Option(
@@ -262,6 +263,10 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
       for (int i = 0; i < node.getNumLeavingEdges(); ++i) {
         CFAEdge edge = node.getLeavingEdge(i);
         String edgeFuncName = getEdgeFunctionName(edge);
+
+        if (node.getFunctionName().contains("P1__cloned_function__2")) {
+          System.out.println(node.getFunctionName() + ": " + node.getLeavingEdge(i));
+        }
 
         // special optimization for main function.
         if (funcName.equals(mainFunctionName) && !extractStart) {
@@ -476,7 +481,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
       int curNodeNextIndex = nodeStatus.getSecond();
 
       // reach successor limit or block end.
-      if (curNodeNextIndex >= curNode.getNumLeavingEdges() || curNode instanceof FunctionExitNode) {
+      if ((curNodeNextIndex >= curNode.getNumLeavingEdges())
+          || curNode instanceof FunctionExitNode) {
         blockStack.pop();
         continue;
       }
@@ -490,18 +496,36 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
       }
       String nextEdgeFunName = getEdgeFunctionName(nextEdge);
 
-      // process block end.
-      if (nextEdgeFunName != null && nextEdgeFunName.equals(blockStopFunName)) {
-        EdgeVtx tmpDepNode = (EdgeVtx) pExtractor.extractESVAInfo(nextEdge);
-        ++innerProcEdgeNumber;
-        if (tmpDepNode != null) {
-          resDepNode = resDepNode.mergeGlobalRWVarsOnly(tmpDepNode);
-        }
+      // process function call.
+      if (nextEdgeFunName != null) {
+        // process block end.
+        if (nextEdgeFunName.equals(blockStopFunName)) {
+          EdgeVtx tmpDepNode = (EdgeVtx) pExtractor.extractESVAInfo(nextEdge);
+          ++innerProcEdgeNumber;
+          if (tmpDepNode != null) {
+            resDepNode = resDepNode.mergeGlobalRWVarsOnly(tmpDepNode);
+          }
 
-        visitedEdges.add(nextEdge);
-        pWaitlist.add(nextEdgeSucNode);
-        pVisitedNodes.add(nextEdgeSucNode);
-        continue;
+          visitedEdges.add(nextEdge);
+          pWaitlist.add(nextEdgeSucNode);
+          pVisitedNodes.add(nextEdgeSucNode);
+          continue;
+        } else {
+          // process block inner function call (leaving summary edge)
+          FunctionSummaryEdge leavingSummaryEdge = curNode.getLeavingSummaryEdge();
+          if (leavingSummaryEdge != null) {
+            // some function call have no leaving summary edge.
+            EdgeVtx tmpDepNode = (EdgeVtx) pExtractor.extractESVAInfo(leavingSummaryEdge);
+            if (tmpDepNode != null) {
+              resDepNode = resDepNode.mergeGlobalRWVarsOnly(tmpDepNode);
+            }
+
+            CFANode summarySucNode = leavingSummaryEdge.getSuccessor();
+            blockStack.push(Pair.of(summarySucNode, 0));
+            visitedEdges.add(leavingSummaryEdge);
+            pVisitedNodes.add(summarySucNode);
+          }
+        }
       }
 
       // process block internals.
