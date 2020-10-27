@@ -140,7 +140,7 @@ public class EdgeSharedVarAccessExtractor {
             funSummaryEdge.getExpression(),
             pEdge.getSuccessor().getFunctionName());
       default:
-        throw new AssertionError("unexpected edge: " + pEdge);
+        return null;
     }
   }
 
