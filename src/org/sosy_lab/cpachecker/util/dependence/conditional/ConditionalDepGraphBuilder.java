@@ -264,10 +264,6 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
         CFAEdge edge = node.getLeavingEdge(i);
         String edgeFuncName = getEdgeFunctionName(edge);
 
-        if (node.getFunctionName().contains("P1__cloned_function__2")) {
-          System.out.println(node.getFunctionName() + ": " + node.getLeavingEdge(i));
-        }
-
         // special optimization for main function.
         if (funcName.equals(mainFunctionName) && !extractStart) {
           // we skip the global variable initialization part for the sake of size of dependence
