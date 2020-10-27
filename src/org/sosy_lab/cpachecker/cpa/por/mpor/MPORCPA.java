@@ -57,6 +57,7 @@ public class MPORCPA extends AbstractCPA
   public MPORCPA(Configuration pConfig, LogManager pLogger, CFA pCfa)
       throws InvalidConfigurationException {
     super("sep", "sep", new MPORTransferRelation(pConfig, pLogger, pCfa));
+    pConfig.inject(this);
     statistics = new MPORStatistics();
     cfa = pCfa;
   }
