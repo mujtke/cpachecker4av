@@ -387,10 +387,6 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
       Set<CFANode> pVisitedNodes) {
     CFANode edgeSucNode = pEdge.getSuccessor();
 
-    if (pEdge.getCode().contains("pthread_mutex_init")) {
-      System.out.println(pEdge);
-    }
-
     // we do not need to process CFunctionSummaryStatementEdge.
     if (!(pEdge instanceof CFunctionSummaryStatementEdge)) {
       if(pEdgeFunName != null) {
