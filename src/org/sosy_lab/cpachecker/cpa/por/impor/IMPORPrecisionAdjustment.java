@@ -95,6 +95,11 @@ public class IMPORPrecisionAdjustment implements PrecisionAdjustment {
     if (pFullState instanceof ARGState) {
       ARGState argCurState = (ARGState) pFullState,
           argParState = argCurState.getParents().iterator().next();
+      // we need to clean up the caches for some refinement base algorithms.
+      if (argParState.getStateId() == 0) {
+        cleanUpCaches();
+      }
+
       IMPORState imporCurState = AbstractStates.extractStateByType(argCurState, IMPORState.class),
           imporParState = AbstractStates.extractStateByType(argParState, IMPORState.class);
       int argParStateId = argParState.getStateId();
@@ -201,6 +206,11 @@ public class IMPORPrecisionAdjustment implements PrecisionAdjustment {
     return Optional.of(
         PrecisionAdjustmentResult.create(
             pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
+  }
+
+  private void cleanUpCaches() {
+    nExploredChildCache.clear();
+    parentTypedChildCache.clear();
   }
 
   /**
