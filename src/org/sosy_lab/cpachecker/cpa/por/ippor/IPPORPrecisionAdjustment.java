@@ -17,7 +17,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.sosy_lab.cpachecker.cpa.por.impor;
+package org.sosy_lab.cpachecker.cpa.por.ippor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.FluentIterable.from;
@@ -35,14 +35,14 @@ import org.sosy_lab.cpachecker.core.interfaces.PrecisionAdjustment;
 import org.sosy_lab.cpachecker.core.interfaces.PrecisionAdjustmentResult;
 import org.sosy_lab.cpachecker.core.reachedset.UnmodifiableReachedSet;
 import org.sosy_lab.cpachecker.cpa.arg.ARGState;
-import org.sosy_lab.cpachecker.cpa.por.impor.IMPORState.EdgeType;
+import org.sosy_lab.cpachecker.cpa.por.ippor.IPPORState.EdgeType;
 import org.sosy_lab.cpachecker.exceptions.CPAException;
 import org.sosy_lab.cpachecker.util.AbstractStates;
 import org.sosy_lab.cpachecker.util.Triple;
 import org.sosy_lab.cpachecker.util.dependence.DGNode;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
 
-public class IMPORPrecisionAdjustment implements PrecisionAdjustment {
+public class IPPORPrecisionAdjustment implements PrecisionAdjustment {
 
   private final ConditionalDepGraph condDepGraph;
   private final Map<Integer, Integer> nExploredChildCache;
@@ -54,7 +54,7 @@ public class IMPORPrecisionAdjustment implements PrecisionAdjustment {
           from(s.getChildren())
               .filter(
                   cs ->
-                      AbstractStates.extractStateByType(cs, IMPORState.class)
+                      AbstractStates.extractStateByType(cs, IPPORState.class)
                           .getTransferInEdgeType()
                           .equals(EdgeType.GVAEdge))
               .toSet();
@@ -63,7 +63,7 @@ public class IMPORPrecisionAdjustment implements PrecisionAdjustment {
           from(s.getChildren())
               .filter(
                   cs ->
-                      AbstractStates.extractStateByType(cs, IMPORState.class)
+                      AbstractStates.extractStateByType(cs, IPPORState.class)
                           .getTransferInEdgeType()
                           .equals(EdgeType.NEdge))
               .toSet();
@@ -72,12 +72,12 @@ public class IMPORPrecisionAdjustment implements PrecisionAdjustment {
           from(s.getChildren())
               .filter(
                   cs ->
-                      AbstractStates.extractStateByType(cs, IMPORState.class)
+                      AbstractStates.extractStateByType(cs, IPPORState.class)
                           .getTransferInEdgeType()
                           .equals(EdgeType.NAEdge))
               .toSet();
 
-  public IMPORPrecisionAdjustment(ConditionalDepGraph pCondDepGraph) {
+  public IPPORPrecisionAdjustment(ConditionalDepGraph pCondDepGraph) {
     condDepGraph = checkNotNull(pCondDepGraph);
     nExploredChildCache = new HashMap<>();
     parentTypedChildCache = new HashMap<>();
@@ -100,8 +100,8 @@ public class IMPORPrecisionAdjustment implements PrecisionAdjustment {
         cleanUpCaches();
       }
 
-      IMPORState imporCurState = AbstractStates.extractStateByType(argCurState, IMPORState.class),
-          imporParState = AbstractStates.extractStateByType(argParState, IMPORState.class);
+      IPPORState imporCurState = AbstractStates.extractStateByType(argCurState, IPPORState.class),
+          imporParState = AbstractStates.extractStateByType(argParState, IPPORState.class);
       int argParStateId = argParState.getStateId();
 
       // checkout whether all the successor edges of argParState are GVAEdge, if true, we mark the

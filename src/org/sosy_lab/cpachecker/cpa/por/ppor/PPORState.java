@@ -17,7 +17,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.sosy_lab.cpachecker.cpa.por.mpor;
+package org.sosy_lab.cpachecker.cpa.por.ppor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -32,14 +32,14 @@ import org.sosy_lab.cpachecker.util.threading.MultiThreadState;
 import org.sosy_lab.cpachecker.util.threading.SingleThreadState;
 import org.sosy_lab.cpachecker.util.threading.ThreadOperator;
 
-public class MPORState implements AbstractState {
+public class PPORState implements AbstractState {
 
   private int threadCounter;
   private CFAEdge transferInEdge;
   private LocationsState threadLocs;
   private Map<String, Integer> threadIdNumbers;
 
-  public static MPORState getInitialInstance(
+  public static PPORState getInitialInstance(
       CFANode pInitNode, String pMainThreadId, boolean pIsFollowFunCalls) {
     assert pInitNode.getNumLeavingEdges() == 1;
     int initThreadCounter = 0;
@@ -54,10 +54,10 @@ public class MPORState implements AbstractState {
     Map<String, Integer> initThreadIdNumbers = new HashMap<>();
     initThreadIdNumbers.put(pMainThreadId, initThreadCounter);
 
-    return new MPORState(initThreadCounter, initEdge, initThreadLocs, initThreadIdNumbers);
+    return new PPORState(initThreadCounter, initEdge, initThreadLocs, initThreadIdNumbers);
   }
 
-  public MPORState(
+  public PPORState(
       int pThreadCounter,
       CFAEdge pEdge,
       LocationsState pLocs,
@@ -81,8 +81,8 @@ public class MPORState implements AbstractState {
       return true;
     }
 
-    if (pObj != null && pObj instanceof MPORState) {
-      MPORState other = (MPORState) pObj;
+    if (pObj != null && pObj instanceof PPORState) {
+      PPORState other = (PPORState) pObj;
       return transferInEdge.equals(other.transferInEdge)
           && threadLocs.equals(other.threadLocs)
           && threadIdNumbers.equals(other.threadIdNumbers);

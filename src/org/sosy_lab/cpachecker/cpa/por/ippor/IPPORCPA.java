@@ -17,7 +17,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.sosy_lab.cpachecker.cpa.por.impor;
+package org.sosy_lab.cpachecker.cpa.por.ippor;
 
 import java.util.Collection;
 import org.sosy_lab.common.configuration.Configuration;
@@ -37,11 +37,11 @@ import org.sosy_lab.cpachecker.core.interfaces.StateSpacePartition;
 import org.sosy_lab.cpachecker.core.interfaces.Statistics;
 import org.sosy_lab.cpachecker.core.interfaces.StatisticsProvider;
 
-@Options(prefix = "cpa.impor")
-public class IMPORCPA extends AbstractCPA
+@Options(prefix = "cpa.ippor")
+public class IPPORCPA extends AbstractCPA
     implements StatisticsProvider, ConfigurableProgramAnalysis {
 
-  private final IMPORStatistics statistics;
+  private final IPPORStatistics statistics;
   private final CFA cfa;
 
   @Option(
@@ -53,35 +53,35 @@ public class IMPORCPA extends AbstractCPA
   private boolean followFunctionCalls = true;
 
   public static CPAFactory factory() {
-    return AutomaticCPAFactory.forType(IMPORCPA.class);
+    return AutomaticCPAFactory.forType(IPPORCPA.class);
   }
 
-  public IMPORCPA(Configuration pConfig, LogManager pLogger, CFA pCfa)
+  public IPPORCPA(Configuration pConfig, LogManager pLogger, CFA pCfa)
       throws InvalidConfigurationException {
-    super("sep", "sep", new IMPORTransferRelation(pConfig, pLogger, pCfa));
+    super("sep", "sep", new IPPORTransferRelation(pConfig, pLogger, pCfa));
 
     pConfig.inject(this);
-    statistics = new IMPORStatistics();
+    statistics = new IPPORStatistics();
     cfa = pCfa;
   }
 
   @Override
   public AbstractState getInitialState(CFANode pNode, StateSpacePartition pPartition)
       throws InterruptedException {
-    return IMPORState.getInitialInstance(
+    return IPPORState.getInitialInstance(
         pNode, cfa.getMainFunction().getFunctionName(), followFunctionCalls);
   }
 
   @Override
   public PrecisionAdjustment getPrecisionAdjustment() {
-    return new IMPORPrecisionAdjustment(
-        ((IMPORTransferRelation) getTransferRelation()).getCondDepGraph());
+    return new IPPORPrecisionAdjustment(
+        ((IPPORTransferRelation) getTransferRelation()).getCondDepGraph());
   }
 
   @Override
   public void collectStatistics(Collection<Statistics> pStatsCollection) {
     pStatsCollection.add(statistics);
-    IMPORTransferRelation transferRelation = (IMPORTransferRelation) this.getTransferRelation();
+    IPPORTransferRelation transferRelation = (IPPORTransferRelation) this.getTransferRelation();
     pStatsCollection.add(transferRelation.getCondDepGraphBuildStatistics());
   }
 

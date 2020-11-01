@@ -1,1 +1,1 @@
-package org.sosy_lab.cpachecker.cpa.por.mpor;
+package org.sosy_lab.cpachecker.cpa.por.ppor;

@@ -17,7 +17,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.sosy_lab.cpachecker.cpa.por.mpor;
+package org.sosy_lab.cpachecker.cpa.por.ppor;
 
 import java.io.PrintStream;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -25,7 +25,7 @@ import org.sosy_lab.cpachecker.core.CPAcheckerResult.Result;
 import org.sosy_lab.cpachecker.core.interfaces.Statistics;
 import org.sosy_lab.cpachecker.core.reachedset.UnmodifiableReachedSet;
 
-public class MPORStatistics implements Statistics {
+public class PPORStatistics implements Statistics {
 
   @Override
   public void printStatistics(PrintStream pOut, Result pResult, UnmodifiableReachedSet pReached) {
@@ -33,6 +33,6 @@ public class MPORStatistics implements Statistics {
 
   @Override
   public @Nullable String getName() {
-    return "MPORCPA";
+    return "PPORCPA";
   }
 }

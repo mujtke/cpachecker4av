@@ -17,7 +17,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.sosy_lab.cpachecker.cpa.por.mpor;
+package org.sosy_lab.cpachecker.cpa.por.ppor;
 
 import java.util.Collection;
 import org.sosy_lab.common.configuration.Configuration;
@@ -36,11 +36,11 @@ import org.sosy_lab.cpachecker.core.interfaces.StateSpacePartition;
 import org.sosy_lab.cpachecker.core.interfaces.Statistics;
 import org.sosy_lab.cpachecker.core.interfaces.StatisticsProvider;
 
-@Options(prefix="cpa.mpor")
-public class MPORCPA extends AbstractCPA
+@Options(prefix = "cpa.ppor")
+public class PPORCPA extends AbstractCPA
     implements StatisticsProvider, ConfigurableProgramAnalysis {
 
-  private final MPORStatistics statistics;
+  private final PPORStatistics statistics;
   private final CFA cfa;
 
   @Option(
@@ -51,28 +51,28 @@ public class MPORCPA extends AbstractCPA
     private boolean followFunctionCalls = true;
 
   public static CPAFactory factory() {
-    return AutomaticCPAFactory.forType(MPORCPA.class);
+    return AutomaticCPAFactory.forType(PPORCPA.class);
   }
 
-  public MPORCPA(Configuration pConfig, LogManager pLogger, CFA pCfa)
+  public PPORCPA(Configuration pConfig, LogManager pLogger, CFA pCfa)
       throws InvalidConfigurationException {
-    super("sep", "sep", new MPORTransferRelation(pConfig, pLogger, pCfa));
+    super("sep", "sep", new PPORTransferRelation(pConfig, pLogger, pCfa));
     pConfig.inject(this);
-    statistics = new MPORStatistics();
+    statistics = new PPORStatistics();
     cfa = pCfa;
   }
 
   @Override
   public AbstractState getInitialState(CFANode pNode, StateSpacePartition pPartition)
       throws InterruptedException {
-    return MPORState.getInitialInstance(
+    return PPORState.getInitialInstance(
         pNode, cfa.getMainFunction().getFunctionName(), followFunctionCalls);
   }
 
   @Override
   public void collectStatistics(Collection<Statistics> pStatsCollection) {
     pStatsCollection.add(statistics);
-    MPORTransferRelation transferRelation = (MPORTransferRelation) this.getTransferRelation();
+    PPORTransferRelation transferRelation = (PPORTransferRelation) this.getTransferRelation();
     pStatsCollection.add(transferRelation.getCondDepGraphBuildStatistics());
   }
 

@@ -17,7 +17,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.sosy_lab.cpachecker.cpa.por.impor;
+package org.sosy_lab.cpachecker.cpa.por.ippor;
 
 import static com.google.common.collect.FluentIterable.from;
 
@@ -38,33 +38,31 @@ import org.sosy_lab.cpachecker.core.interfaces.Precision;
 import org.sosy_lab.cpachecker.core.interfaces.Statistics;
 import org.sosy_lab.cpachecker.cpa.locationss.LocationsCPA;
 import org.sosy_lab.cpachecker.cpa.locationss.LocationsState;
-import org.sosy_lab.cpachecker.cpa.por.impor.IMPORState.EdgeType;
-import org.sosy_lab.cpachecker.cpa.por.mpor.MPORState;
+import org.sosy_lab.cpachecker.cpa.por.ippor.IPPORState.EdgeType;
+import org.sosy_lab.cpachecker.cpa.por.ppor.PPORState;
 import org.sosy_lab.cpachecker.exceptions.CPATransferException;
 import org.sosy_lab.cpachecker.util.Pair;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraphBuilder;
 
-public class IMPORTransferRelation extends SingleEdgeTransferRelation {
+public class IPPORTransferRelation extends SingleEdgeTransferRelation {
 
   private final LocationsCPA locationsCPA;
   private final ConditionalDepGraphBuilder builder;
   private final ConditionalDepGraph condDepGraph;
 
-  public IMPORTransferRelation(Configuration pConfig, LogManager pLogger, CFA pCfa)
+  public IPPORTransferRelation(Configuration pConfig, LogManager pLogger, CFA pCfa)
       throws InvalidConfigurationException {
     locationsCPA = LocationsCPA.create(pConfig, pLogger, pCfa);
     builder = new ConditionalDepGraphBuilder(pCfa, pConfig, pLogger);
     condDepGraph = builder.build();
-    condDepGraph.export("./output/dep.dot");
-    condDepGraph.exportNodes("./output/nodes.txt");
   }
 
   @Override
   public Collection<? extends AbstractState> getAbstractSuccessorsForEdge(
       AbstractState pState, Precision pPrecision, CFAEdge pCfaEdge)
       throws CPATransferException, InterruptedException {
-    IMPORState curState = (IMPORState) pState;
+    IPPORState curState = (IPPORState) pState;
 
     // compute new locations.
     Collection<? extends AbstractState> newStates =
@@ -78,7 +76,7 @@ public class IMPORTransferRelation extends SingleEdgeTransferRelation {
       return ImmutableSet.of();
     } else {
       // we need to obtain some information to determine whether it is necessary to explore some
-      // branches if MPOR could be applied at curState.
+      // branches if PPOR could be applied at curState.
 
       LocationsState newLocs = (LocationsState) newStates.iterator().next();
       Map<String, Integer> oldThreadIdNumbers = curState.getThreadIdNumbers();
@@ -88,17 +86,17 @@ public class IMPORTransferRelation extends SingleEdgeTransferRelation {
       int newThreadCounter = newThreadIdInfo.getFirst();
       Map<String, Integer> newThreadIdNumbers = newThreadIdInfo.getSecond();
 
-      // note: here, we only generate the successor of pCfaEdge, the real IMPOR routine is in the
+      // note: here, we only generate the successor of pCfaEdge, the real IPPOR routine is in the
       // precision adjust part.
 
       return ImmutableSet.of(
-          new IMPORState(
+          new IPPORState(
               newThreadCounter,
               pCfaEdge,
               determineEdgeType(pCfaEdge),
               newLocs,
               newThreadIdNumbers,
-              curState.isMporPoint()));
+              curState.isPporPoint()));
     }
   }
 
@@ -113,7 +111,7 @@ public class IMPORTransferRelation extends SingleEdgeTransferRelation {
    * @param pOldTidNumber The old thread id number map.
    * @param pNewLocs The newly generated thread locations.
    * @return This function returns a pair, the first component indicates the threadCounter of the
-   *     new {@link MPORState} (thread creation will modify this value), and the second component
+   *     new {@link PPORState} (thread creation will modify this value), and the second component
    *     indicates the map of synchronized thread id number.
    */
   private Pair<Integer, Map<String, Integer>> updateThreadIdNumber(

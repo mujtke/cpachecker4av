@@ -17,7 +17,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.sosy_lab.cpachecker.cpa.por.impor;
+package org.sosy_lab.cpachecker.cpa.por.ippor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -32,7 +32,7 @@ import org.sosy_lab.cpachecker.util.threading.MultiThreadState;
 import org.sosy_lab.cpachecker.util.threading.SingleThreadState;
 import org.sosy_lab.cpachecker.util.threading.ThreadOperator;
 
-public class IMPORState implements AbstractState {
+public class IPPORState implements AbstractState {
 
   public enum EdgeType {
     NEdge, // normal edge (not assume edge).
@@ -45,9 +45,9 @@ public class IMPORState implements AbstractState {
   private EdgeType transferInEdgeType;
   private LocationsState threadLocs;
   private Map<String, Integer> threadIdNumbers;
-  private boolean mporPoint;
+  private boolean pporPoint;
 
-  public static IMPORState getInitialInstance(
+  public static IPPORState getInitialInstance(
       CFANode pInitNode, String pMainThreadId, boolean pIsFollowFunCalls) {
     assert pInitNode.getNumLeavingEdges() == 1;
     int initThreadCounter = 0;
@@ -62,17 +62,17 @@ public class IMPORState implements AbstractState {
     Map<String, Integer> initThreadIdNumbers = new HashMap<>();
     initThreadIdNumbers.put(pMainThreadId, initThreadCounter);
 
-    return new IMPORState(
+    return new IPPORState(
         initThreadCounter, initEdge, EdgeType.NEdge, initThreadLocs, initThreadIdNumbers, false);
   }
 
-  public IMPORState(
+  public IPPORState(
       int pThreadCounter,
       CFAEdge pEdge,
       EdgeType pEdgeType,
       LocationsState pLocs,
       Map<String, Integer> pThrdIdNumbers,
-      boolean pMPORPoint) {
+      boolean pPPORPoint) {
     assert pThreadCounter >= 0;
 
     threadCounter = pThreadCounter;
@@ -80,7 +80,7 @@ public class IMPORState implements AbstractState {
     transferInEdgeType = checkNotNull(pEdgeType);
     threadLocs = checkNotNull(pLocs);
     threadIdNumbers = checkNotNull(pThrdIdNumbers);
-    mporPoint = pMPORPoint;
+    pporPoint = pPPORPoint;
   }
 
   @Override
@@ -94,12 +94,12 @@ public class IMPORState implements AbstractState {
       return true;
     }
 
-    if (pObj != null && pObj instanceof IMPORState) {
-      IMPORState other = (IMPORState) pObj;
+    if (pObj != null && pObj instanceof IPPORState) {
+      IPPORState other = (IPPORState) pObj;
       return transferInEdge.equals(other.transferInEdge)
           && threadLocs.equals(other.threadLocs)
           && threadIdNumbers.equals(other.threadIdNumbers)
-          && (mporPoint == other.mporPoint);
+          && (pporPoint == other.pporPoint);
     }
 
     return false;
@@ -118,7 +118,7 @@ public class IMPORState implements AbstractState {
 
       result += thread + "::" + threadIdNumber + "::" + threadLoc + " ";
     }
-    result += " <--> [" + mporPoint + "])";
+    result += " <--> [" + pporPoint + "])";
 
     return result;
   }
@@ -143,12 +143,12 @@ public class IMPORState implements AbstractState {
     return threadIdNumbers;
   }
 
-  public boolean isMporPoint() {
-    return mporPoint;
+  public boolean isPporPoint() {
+    return pporPoint;
   }
 
-  public void setMporPoint(boolean pMporPoint) {
-    mporPoint = pMporPoint;
+  public void setPporPoint(boolean pPporPoint) {
+    pporPoint = pPporPoint;
   }
 
   public int getThreadIdNumber(String pThreadName) {

@@ -17,7 +17,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.sosy_lab.cpachecker.cpa.por.mpor;
+package org.sosy_lab.cpachecker.cpa.por.ppor;
 
 import static com.google.common.collect.FluentIterable.from;
 
@@ -45,13 +45,13 @@ import org.sosy_lab.cpachecker.util.dependence.DGNode;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraphBuilder;
 
-public class MPORTransferRelation extends SingleEdgeTransferRelation {
+public class PPORTransferRelation extends SingleEdgeTransferRelation {
 
   private final LocationsCPA locationsCPA;
   private final ConditionalDepGraphBuilder builder;
   private final ConditionalDepGraph condDepGraph;
 
-  public MPORTransferRelation(Configuration pConfig, LogManager pLogger, CFA pCfa)
+  public PPORTransferRelation(Configuration pConfig, LogManager pLogger, CFA pCfa)
       throws InvalidConfigurationException {
     locationsCPA = LocationsCPA.create(pConfig, pLogger, pCfa);
     builder = new ConditionalDepGraphBuilder(pCfa, pConfig, pLogger);
@@ -63,7 +63,7 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
   public Collection<? extends AbstractState> getAbstractSuccessorsForEdge(
       AbstractState pState, Precision pPrecision, CFAEdge pCfaEdge)
       throws CPATransferException, InterruptedException {
-    MPORState curState = (MPORState) pState;
+    PPORState curState = (PPORState) pState;
 
     // compute new locations.
     Collection<? extends AbstractState> newStates =
@@ -104,7 +104,7 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
       }
 
       return ImmutableSet.of(
-          new MPORState(newThreadCounter, pCfaEdge, newLocs, newThreadIdNumbers));
+          new PPORState(newThreadCounter, pCfaEdge, newLocs, newThreadIdNumbers));
     }
   }
 
@@ -119,7 +119,7 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
    * @param pOldTidNumber The old thread id number map.
    * @param pNewLocs The newly generated thread locations.
    * @return This function returns a pair, the first component indicates the threadCounter of the
-   *     new {@link MPORState} (thread creation will modify this value), and the second component
+   *     new {@link PPORState} (thread creation will modify this value), and the second component
    *     indicates the map of synchronized thread id number.
    */
   private Pair<Integer, Map<String, Integer>> updateThreadIdNumber(
@@ -159,7 +159,7 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
    *     control flow; 4) the transfered edge does not induce thread creation or exit; 5) skip the
    *     starting edge of a created thread.
    * @implNote Notice that, the three constraints 3), 4) and 5) are used for confining the
-   *     utilization of MPOR into the normal states, i.e., avoids the application of MPOR out of
+   *     utilization of PPOR into the normal states, i.e., avoids the application of PPOR out of
    *     bounds.
    */
   public boolean canSkip(
