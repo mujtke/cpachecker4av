@@ -124,20 +124,20 @@ public class IPPORPrecisionAdjustment implements PrecisionAdjustment {
       // update the mark of Inf/MPOR point of the current and parent states.
       boolean parStateMPORPoint =
           !gvaSuccessors.isEmpty() && naSuccessors.isEmpty() && nSuccessors.isEmpty();
-      if (parStateMPORPoint && !imporCurState.isMporPoint()) {
-        imporParState.setMporPoint(false);
-        imporCurState.setMporPoint(true);
+      if (parStateMPORPoint && !imporCurState.isPporPoint()) {
+        imporParState.setPporPoint(false);
+        imporCurState.setPporPoint(true);
       }
 
       //
       boolean parStateInfPoint =
           gvaSuccessors.isEmpty() && !(naSuccessors.isEmpty() && nSuccessors.isEmpty());
       if (parStateInfPoint) {
-        imporCurState.setMporPoint(false);
+        imporCurState.setPporPoint(false);
       }
 
       //// now, we explore the successor states according to the MPOR point mark.
-      if (imporParState.isMporPoint() && imporCurState.isMporPoint()) {
+      if (imporParState.isPporPoint() && imporCurState.isPporPoint()) {
         // for MPOR point.
         int oldThreadIdNumber = imporParState.getTransferInEdgeThreadId(),
             newThreadIdNumber = imporCurState.getTransferInEdgeThreadId();
