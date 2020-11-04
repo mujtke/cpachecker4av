@@ -25,6 +25,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -40,6 +41,7 @@ import org.sosy_lab.cpachecker.exceptions.InvalidQueryException;
 import org.sosy_lab.cpachecker.util.threading.MultiThreadState;
 import org.sosy_lab.cpachecker.util.threading.SingleThreadState;
 import org.sosy_lab.cpachecker.util.threading.ThreadInfoProvider;
+import org.sosy_lab.cpachecker.util.threading.ThreadOperator;
 
 public class LocationsState
     implements AbstractStateWithLocation, ThreadInfoProvider, AbstractQueryableState, Partitionable,
@@ -48,7 +50,15 @@ public class LocationsState
   private MultiThreadState locations;
 
   /** Here, we do not provide the backward analysis state. */
+  public static LocationsState getInitialInstance(
+      CFANode pInitNode, String pMainThreadId, boolean pIsFollowFunCalls) {
+    SingleThreadState mainLocState =
+        new SingleThreadState(pInitNode, ThreadOperator.MIN_THREAD_NUM);
+    Map<String, SingleThreadState> locsMap = new HashMap<>();
+    locsMap.put(pMainThreadId, mainLocState);
 
+    return new LocationsState(locsMap, pMainThreadId, pIsFollowFunCalls);
+  }
 
   public LocationsState(
       Map<String, SingleThreadState> pLocations,
