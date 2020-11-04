@@ -151,7 +151,9 @@ public class EdgeSharedVarAccessExtractor {
     if (pAssumeEdge instanceof CAssumeEdge) {
       // the access type of variables in assume edge are read.
       Set<Var> gRVars = sharedVarAccessFilter.apply(extract(pExpression).getFirst());
-      return gRVars.isEmpty() ? null : new EdgeVtx(pAssumeEdge, gRVars, Set.of(), true);
+      return gRVars.isEmpty()
+          ? null
+          : new EdgeVtx(pAssumeEdge, Set.of(pAssumeEdge), gRVars, Set.of(), true);
     }
 
     throw new AssertionError(
@@ -178,13 +180,13 @@ public class EdgeSharedVarAccessExtractor {
         if (specialBlockFuncPairs.values().contains(funcName)
             || specialBlockFuncPairs.keySet().contains(funcName)
             || funcName.startsWith(specialSelfBlockFunc)) {
-          return new EdgeVtx(pStmtEdge, gRVars, Set.of(), true);
+          return new EdgeVtx(pStmtEdge, Set.of(), gRVars, Set.of(), true);
         }
       }
 
       return (gRVars.isEmpty() && gWVars.isEmpty())
           ? null
-          : new EdgeVtx(pStmtEdge, gRVars, gWVars, true);
+          : new EdgeVtx(pStmtEdge, Set.of(pStmtEdge), gRVars, gWVars, true);
     }
 
     throw new AssertionError(
@@ -198,7 +200,7 @@ public class EdgeSharedVarAccessExtractor {
           gWVars = sharedVarAccessFilter.apply(vars.getSecond());
       return (gRVars.isEmpty() && gWVars.isEmpty())
           ? null
-          : new EdgeVtx(pDeclEdge, gRVars, gWVars, true);
+          : new EdgeVtx(pDeclEdge, Set.of(pDeclEdge), gRVars, gWVars, true);
     }
 
     throw new AssertionError(
@@ -212,7 +214,9 @@ public class EdgeSharedVarAccessExtractor {
       if (retStat.isPresent()) {
         // note: the lhs variable is a build-in local variable (e.g., func::__retval__).
         Set<Var> gRVars = sharedVarAccessFilter.apply(extract(retStat.get()).getFirst());
-        return gRVars.isEmpty() ? null : new EdgeVtx(pRetEdge, gRVars, Set.of(), true);
+        return gRVars.isEmpty()
+            ? null
+            : new EdgeVtx(pRetEdge, Set.of(pRetEdge), gRVars, Set.of(), true);
       }
 
       return null;
@@ -245,9 +249,11 @@ public class EdgeSharedVarAccessExtractor {
       if (specialBlockFuncPairs.values().contains(pFunctionName)
           || specialBlockFuncPairs.keySet().contains(pFunctionName)
           || pFunctionName.startsWith(specialSelfBlockFunc)) {
-        return new EdgeVtx(pFunCallEdge, gRVars, Set.of(), true);
+        return new EdgeVtx(pFunCallEdge, Set.of(pFunCallEdge), gRVars, Set.of(), true);
       } else {
-        return gRVars.isEmpty() ? null : new EdgeVtx(pFunCallEdge, gRVars, Set.of(), true);
+        return gRVars.isEmpty()
+            ? null
+            : new EdgeVtx(pFunCallEdge, Set.of(pFunCallEdge), gRVars, Set.of(), true);
       }
     }
 
@@ -265,7 +271,9 @@ public class EdgeSharedVarAccessExtractor {
       if (pSummaryExpr instanceof CFunctionCallAssignmentStatement) {
         CLeftHandSide lhsExpr = ((CFunctionCallAssignmentStatement) pSummaryExpr).getLeftHandSide();
         Set<Var> gRVars = sharedVarAccessFilter.apply(extract(lhsExpr).getFirst());
-        return gRVars.isEmpty() ? null : new EdgeVtx(pFunRetEdge, Set.of(), gRVars, true);
+        return gRVars.isEmpty()
+            ? null
+            : new EdgeVtx(pFunRetEdge, Set.of(pFunRetEdge), Set.of(), gRVars, true);
       }
 
       return null;

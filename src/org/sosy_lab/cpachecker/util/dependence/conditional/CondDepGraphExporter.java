@@ -58,7 +58,7 @@ public class CondDepGraphExporter {
   private static String getNodeString(final EdgeVtx pNode) {
     String shape;
 
-    switch(pNode.getEdge().getEdgeType()) {
+    switch (pNode.getBlockStartEdge().getEdgeType()) {
       case AssumeEdge:
         shape = "diamond";
         break;
@@ -80,7 +80,7 @@ public class CondDepGraphExporter {
   private static String formatNode(final EdgeVtx pNode, final String pShape) {
     String nodeId = getNodeRepresentation(pNode);
 
-    CFAEdge nodeEdge = pNode.getEdge();
+    CFAEdge nodeEdge = pNode.getBlockStartEdge();
     String nodeDescription = (nodeEdge.getPredecessor().getFunctionName() + ": " + nodeEdge.toString()).replaceAll("\\\"", "\\\\\"");
 
     return nodeId + " [shape=\"" + pShape + "\", label=\"" + nodeDescription + "\"]";

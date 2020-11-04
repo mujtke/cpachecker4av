@@ -34,16 +34,22 @@ public class EdgeVtx implements DGNode {
   public static final BiFunction<Set<Var>, String, Set<Var>> sharedVarNameFilter =
       (vv, name) -> from(vv).filter(v -> v.getName().equals(name)).toSet();
 
-  private final CFAEdge edge;
+  private final CFAEdge blockStartEdge;
+  private final Set<CFAEdge> blockEdges;
   private final Set<Var> gReadVars;
   private final Set<Var> gWriteVars;
   private final boolean simpleEdgeVtx;
 
   public EdgeVtx(
-      final CFAEdge pEdge, final Set<Var> pGRVars, final Set<Var> pGWVars, boolean pSimpleEdgeVtx) {
+      final CFAEdge pEdge,
+      final Set<CFAEdge> pEdges,
+      final Set<Var> pGRVars,
+      final Set<Var> pGWVars,
+      boolean pSimpleEdgeVtx) {
     assert pGRVars != null && pGWVars != null;
 
-    edge = pEdge;
+    blockStartEdge = pEdge;
+    blockEdges = pEdges;
     gReadVars = Set.copyOf(pGRVars);
     gWriteVars = Set.copyOf(pGWVars);
     simpleEdgeVtx = pSimpleEdgeVtx;
@@ -52,14 +58,19 @@ public class EdgeVtx implements DGNode {
   public EdgeVtx(final EdgeVtx pVtxOther) {
     assert pVtxOther != null;
 
-    edge = pVtxOther.edge;
+    blockStartEdge = pVtxOther.blockStartEdge;
+    blockEdges = Set.copyOf(pVtxOther.blockEdges);
     gReadVars = Set.copyOf(pVtxOther.gReadVars);
     gWriteVars = Set.copyOf(pVtxOther.gWriteVars);
     simpleEdgeVtx = pVtxOther.simpleEdgeVtx;
   }
 
-  public CFAEdge getEdge() {
-    return edge;
+  public CFAEdge getBlockStartEdge() {
+    return blockStartEdge;
+  }
+
+  public Set<CFAEdge> getBlockEdges() {
+    return blockEdges;
   }
 
   public Set<Var> getgReadVars() {
@@ -79,7 +90,7 @@ public class EdgeVtx implements DGNode {
 
     Set<Var> tmpGRVars = Sets.union(gReadVars, pOther.gReadVars),
         tmpGWVars = Sets.union(gWriteVars, pOther.gWriteVars);
-    return new EdgeVtx(edge, tmpGRVars, tmpGWVars, simpleEdgeVtx);
+    return new EdgeVtx(blockStartEdge, blockEdges, tmpGRVars, tmpGWVars, simpleEdgeVtx);
   }
 
   /**
@@ -109,7 +120,7 @@ public class EdgeVtx implements DGNode {
   @Override
   public int hashCode() {
     String readHash = "r" + gReadVars.hashCode(), writeHash = "w" + gWriteVars.hashCode();
-    return edge.hashCode() + readHash.hashCode() + writeHash.hashCode();
+    return blockStartEdge.hashCode() + readHash.hashCode() + writeHash.hashCode();
   }
 
   @Override
@@ -121,7 +132,7 @@ public class EdgeVtx implements DGNode {
     if (pObj != null && pObj instanceof EdgeVtx) {
       EdgeVtx other = (EdgeVtx) pObj;
 
-      return edge == other.edge
+      return blockStartEdge == other.blockStartEdge
           && gReadVars.equals(other.gReadVars)
           && gWriteVars.equals(other.gWriteVars);
     }
@@ -131,8 +142,13 @@ public class EdgeVtx implements DGNode {
 
   @Override
   public String toString() {
+
     String result =
-        "[ " + edge.getPredecessor().getFunctionName() + ": \"" + edge.getCode() + "\", r( ";
+        "[ "
+            + blockStartEdge.getPredecessor().getFunctionName()
+            + ": \""
+            + blockStartEdge.getCode()
+            + "\", r( ";
 
     for (Var v : gReadVars) {
       result += v + " ";

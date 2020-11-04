@@ -166,7 +166,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     depGraph = buildDependenceGraph(nodes);
     statistics.depGraphBuildTimer.stop();
 
-    return new ConditionalDepGraph(nodes, depGraph, buildForClonedFunctions, useConditionalDep);
+    return new ConditionalDepGraph(
+        specialBlockFunctionPairs, nodes, depGraph, buildForClonedFunctions, useConditionalDep);
   }
 
   /**
@@ -402,6 +403,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
               selfBlockParamDGNode != null
                   ? new EdgeVtx(
                       pEdge,
+                      Set.of(pEdge),
                       selfBlockParamDGNode.getgReadVars(),
                       selfBlockParamDGNode.getgWriteVars(),
                       selfBlockParamDGNode.isSimpleEdgeVtx())
@@ -410,6 +412,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
               selfBlockContentDGNode != null
                   ? new EdgeVtx(
                       pEdge,
+                      Set.of(pEdge),
                       selfBlockContentDGNode.getgReadVars(),
                       selfBlockContentDGNode.getgWriteVars(),
                       selfBlockContentDGNode.isSimpleEdgeVtx())
@@ -436,44 +439,6 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
             pVisitedNodes.add(summaryEdgeSucNode);
           }
         }
-      }
-
-      // process self-block function call.
-      if ((pEdgeFunName != null) && selfBlockFunVarCache.containsKey(pEdgeFunName)) {
-        // get the block parameter DGNode.
-        EdgeVtx selfBlockParamDGNode = (EdgeVtx) pExtractor.extractESVAInfo(pEdge);
-        // get the block content DGNode.
-        EdgeVtx selfBlockContentDGNode = selfBlockFunVarCache.get(pEdgeFunName);
-        // replace the function call edge of this DGNode, since other caller use pEdge to call the
-        // self-block function.
-        selfBlockParamDGNode =
-            selfBlockParamDGNode != null
-                ? new EdgeVtx(
-                    pEdge,
-                    selfBlockParamDGNode.getgReadVars(),
-                    selfBlockParamDGNode.getgWriteVars(),
-                    selfBlockParamDGNode.isSimpleEdgeVtx())
-                : null;
-        selfBlockContentDGNode =
-            selfBlockContentDGNode != null
-                ? new EdgeVtx(
-                    pEdge,
-                    selfBlockContentDGNode.getgReadVars(),
-                    selfBlockContentDGNode.getgWriteVars(),
-                    selfBlockContentDGNode.isSimpleEdgeVtx())
-                : null;
-        // get the return node of this self-block function.
-        CFANode sucNode =
-            Preconditions.checkNotNull(pEdgePreNode.getLeavingSummaryEdge()).getSuccessor();
-        pWaitlist.add(sucNode);
-
-        EdgeVtx resDGNode =
-            selfBlockContentDGNode != null
-                ? (selfBlockParamDGNode != null
-                    ? selfBlockContentDGNode.mergeGlobalRWVarsOnly(selfBlockParamDGNode)
-                    : selfBlockContentDGNode)
-                : selfBlockParamDGNode;
-        return resDGNode;
       }
 
       if (!pVisitedNodes.contains(edgeSucNode) && !(edgeSucNode instanceof FunctionExitNode)) {
@@ -513,7 +478,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
 
     String blockStopFunName = specialBlockFunctionPairs.get(pBlockStartFunName);
     Stack<Pair<CFANode, Integer>> blockStack = new Stack<>();
-    Set<CFAEdge> visitedEdges = new HashSet<>();
+    Set<CFAEdge> visitedEdges = new HashSet<>(), blockEdges = new HashSet<>();
+    blockEdges.add(pBlockStartEdge);
     EdgeVtx resDepNode = (EdgeVtx) pExtractor.extractESVAInfo(pBlockStartEdge);
     int innerProcEdgeNumber = 0;
 
@@ -551,6 +517,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
             resDepNode = resDepNode.mergeGlobalRWVarsOnly(tmpDepNode);
           }
 
+          blockEdges.add(nextEdge);
           visitedEdges.add(nextEdge);
           pWaitlist.add(nextEdgeSucNode);
           pVisitedNodes.add(nextEdgeSucNode);
@@ -588,11 +555,19 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     if (innerProcEdgeNumber == 2) {
       resDepNode =
           new EdgeVtx(
-              resDepNode.getEdge(), resDepNode.getgReadVars(), resDepNode.getgWriteVars(), true);
+              resDepNode.getBlockStartEdge(),
+              blockEdges,
+              resDepNode.getgReadVars(),
+              resDepNode.getgWriteVars(),
+              true);
     } else {
       resDepNode =
           new EdgeVtx(
-              resDepNode.getEdge(), resDepNode.getgReadVars(), resDepNode.getgWriteVars(), false);
+              resDepNode.getBlockStartEdge(),
+              blockEdges,
+              resDepNode.getgReadVars(),
+              resDepNode.getgWriteVars(),
+              false);
     }
 
     // empty block, we should not put it into the dependence graph.
@@ -644,7 +619,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     } else {
 
       // build the DGNode of this function.
-      EdgeVtx resDGNode = new EdgeVtx(pFunEntry.getEnteringEdge(0), Set.of(), Set.of(), false);
+      CFAEdge initEdge = pFunEntry.getEnteringEdge(0);
+      EdgeVtx resDGNode = new EdgeVtx(initEdge, Set.of(initEdge), Set.of(), Set.of(), false);
 
       waitlist.add(pFunEntry);
       while (!waitlist.isEmpty()) {
@@ -686,8 +662,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     for (int i = 0; i < dgNodes.size(); ++i) {
       for (int j = i; j < dgNodes.size(); ++j) {
         EdgeVtx rowNode = dgNodes.get(i), colNode = dgNodes.get(j);
-        String rowFun = rowNode.getEdge().getPredecessor().getFunctionName(),
-            colFun = colNode.getEdge().getPredecessor().getFunctionName();
+        String rowFun = rowNode.getBlockStartEdge().getPredecessor().getFunctionName(),
+            colFun = colNode.getBlockStartEdge().getPredecessor().getFunctionName();
 
         // we need not the dependence relation of two edges in the main function, since main
         // function can only called once. and note that, if a function could only called once, then

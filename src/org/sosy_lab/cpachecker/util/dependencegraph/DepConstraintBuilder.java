@@ -342,8 +342,8 @@ public class DepConstraintBuilder {
       assert confVarSet.size() == 1;
       CType type = confVarSet.iterator().next().getVarType();
 
-      CExpressionAssignmentStatement stmt1 = getAssignmentStatement(pNode1.getEdge()),
-          stmt2 = getAssignmentStatement(pNode2.getEdge());
+      CExpressionAssignmentStatement stmt1 = getAssignmentStatement(pNode1.getBlockStartEdge()),
+          stmt2 = getAssignmentStatement(pNode2.getBlockStartEdge());
 
       if (stmt1 == null && stmt2 == null) {
         // both the two edges are not assignment statements, but there is a global variable they
