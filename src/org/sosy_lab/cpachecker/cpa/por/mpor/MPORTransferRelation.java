@@ -31,7 +31,6 @@ import org.sosy_lab.common.configuration.InvalidConfigurationException;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
-import org.sosy_lab.cpachecker.cfa.model.FunctionEntryNode;
 import org.sosy_lab.cpachecker.core.defaults.SingleEdgeTransferRelation;
 import org.sosy_lab.cpachecker.core.defaults.SingletonPrecision;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
@@ -45,8 +44,16 @@ import org.sosy_lab.cpachecker.util.Pair;
 import org.sosy_lab.cpachecker.util.Triple;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraphBuilder;
+import org.sosy_lab.cpachecker.util.statistics.ThreadSafeTimerContainer.TimerWrapper;
 
 public class MPORTransferRelation extends SingleEdgeTransferRelation {
+
+  private final MPORStatistics statistics;
+  private final TimerWrapper sucGenTimer;
+  private final TimerWrapper sucLocGenTimer;
+  private final TimerWrapper threadsDynInfoTimer;
+  private final TimerWrapper threadsDepChainTimer;
+  private final TimerWrapper canScheduleCheckTimer;
 
   private final LocationsTransferRelation locsTransferRelation;
   private final ConditionalDepGraphBuilder builder;
@@ -54,6 +61,13 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
 
   public MPORTransferRelation(Configuration pConfig, LogManager pLogger, CFA pCfa)
       throws InvalidConfigurationException {
+    statistics = new MPORStatistics();
+    sucGenTimer = statistics.successorGenTimer.getNewTimer();
+    sucLocGenTimer = statistics.successorLocGenTimer.getNewTimer();
+    threadsDynInfoTimer = statistics.threadsDynamicInfoUpdateTimer.getNewTimer();
+    threadsDepChainTimer = statistics.threadsDepChainUpdateTimer.getNewTimer();
+    canScheduleCheckTimer = statistics.canScheduleCheckTimer.getNewTimer();
+
     locsTransferRelation =
         (LocationsTransferRelation)
             LocationsCPA.create(pConfig, pLogger, pCfa).getTransferRelation();
@@ -65,16 +79,20 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
   public Collection<? extends AbstractState> getAbstractSuccessorsForEdge(
       AbstractState pState, Precision pPrecision, CFAEdge pCfaEdge)
       throws CPATransferException, InterruptedException {
+    sucGenTimer.start();
     MPORState curState = (MPORState) pState;
 
     // compute new locations.
+    sucLocGenTimer.start();
     Collection<? extends AbstractState> newStates =
         locsTransferRelation.getAbstractSuccessorsForEdge(
             curState.getThreadsLoc(), SingletonPrecision.getInstance(), pCfaEdge);
+    sucLocGenTimer.stop();
     assert newStates.size() <= 1;
 
     if (newStates.isEmpty()) {
       // no successor.
+      sucGenTimer.stop();
       return ImmutableSet.of();
     } else {
       // get information from the old state.
@@ -84,27 +102,40 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
 
       // get the new locations.
       LocationsState newLocs = (LocationsState) newStates.iterator().next();
-      // get the id of newly created thread.
-      String newThread = getCreatedThreadId(curState.getThreadsLoc(), newLocs);
+
+      // get the created and exited threads.
+      Pair<String, String> ceThreadPair =
+          getCreatedAndExitThreadIds(curState.getThreadsLoc(), newLocs);
+      String createdThread = ceThreadPair.getFirst(), exitedThread = ceThreadPair.getSecond();
 
       // check whether a thread is created or exit.
-      boolean isThreadCreatedOrExited =
-          newLocs.getMultiThreadState().getThreadIds().size()
-              != curState.getThreadsLoc().getMultiThreadState().getThreadIds().size();
+      boolean isThreadCreatedOrExited = (createdThread != null) || (exitedThread != null);
 
       // update the threads dynamic information.
+      threadsDynInfoTimer.start();
       Pair<Integer, ThreadsDynamicInfo> newThreadsDynamicInfoPair =
           updateThreadsDynamicInfo(
-              oldThreadCounter, oldThreadsDynamicInfo, newLocs, newThread, pCfaEdge);
+              oldThreadCounter, oldThreadsDynamicInfo, newLocs, createdThread, pCfaEdge);
       int newThreadCounter = newThreadsDynamicInfoPair.getFirst();
       ThreadsDynamicInfo newThreadsDynamicInfo = newThreadsDynamicInfoPair.getSecond();
+      threadsDynInfoTimer.stop();
 
       // update the dependency chain.
+      threadsDepChainTimer.start();
       int transThreadNumber = newThreadsDynamicInfo.getThreadDynamicInfo(newLocs.getTransferThreadId()).getFirst();
       Table<Integer, Integer, Integer> newThreadsDepChain =
-          updateThreadsDepChain(oldThreadsDepChain, newThreadsDynamicInfo, transThreadNumber, newThread);
+          updateThreadsDepChain(
+              oldThreadsDepChain,
+              oldThreadsDynamicInfo,
+              newThreadsDynamicInfo,
+              transThreadNumber,
+              createdThread,
+              exitedThread);
+      statistics.sizeDepChain.setNextValue(newThreadsDepChain.rowKeySet().size());
+      threadsDepChainTimer.stop();
 
       // determine whether we should generate the new successor.
+      canScheduleCheckTimer.start();
       CFAEdge preEdge =
           curState
               .getThreadsDynamicInfo()
@@ -118,11 +149,15 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
           isThreadCreatedOrExited,
           preEdge,
           pCfaEdge)) {
+        canScheduleCheckTimer.stop();
+        sucGenTimer.stop();
         return ImmutableSet.of(
             new MPORState(newThreadCounter, newLocs, newThreadsDynamicInfo, newThreadsDepChain));
       }
+      canScheduleCheckTimer.stop();
     }
 
+    sucGenTimer.stop();
     return ImmutableSet.of();
   }
 
@@ -162,15 +197,16 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
       }
     }
 
-    //    return schConstraint;
-    if (!pThreadCreatedOrExited
-        && !(pSucEdge.getPredecessor() instanceof FunctionEntryNode)
-        && !schConstraint
-        && !pPreEdge.getSuccessor().isLoopStart()) {
-      return false;
-    }
-
-    return true;
+    return schConstraint;
+    //// for test, we can enable the codes bellow and disable the return statement above.
+    //    if (!pThreadCreatedOrExited
+    //        && !(pSucEdge.getPredecessor() instanceof FunctionEntryNode)
+    //        && !schConstraint
+    //        && !pPreEdge.getSuccessor().isLoopStart()) {
+    //      return false;
+    //    }
+    //
+    //    return true;
   }
 
   public Pair<Integer, ThreadsDynamicInfo> updateThreadsDynamicInfo(
@@ -205,9 +241,11 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
 
   public Table<Integer, Integer, Integer> updateThreadsDepChain(
       final Table<Integer, Integer, Integer> pOldThreadsDepChain,
+      final ThreadsDynamicInfo pOldThreadsDynamicInfo,
       final ThreadsDynamicInfo pNewThreadsDynamicInfo,
       final int pTransTreadNumber,
-      final String pCreatedThreadId) {
+      final String pCreatedThreadId,
+      final String pExitedThreadId) {
     HashBasedTable<Integer, Integer, Integer> newThreadsDepChain =
         HashBasedTable.create(pOldThreadsDepChain);
     Integer i = pTransTreadNumber;
@@ -266,6 +304,15 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
       newThreadsDepChain.put(createdThreadNumber, createdThreadNumber, 0);
     }
 
+    // remove the dependency chain of exited threads.
+    //    if (pExitedThreadId != null) {
+    //      Integer removeThreadNumber =
+    //          pOldThreadsDynamicInfo.getThreadDynamicInfo(pExitedThreadId).getFirst();
+    //      Set<Integer> allThreadNumbers = Set.copyOf(newThreadsDepChain.rowKeySet());
+    //      allThreadNumbers.forEach(t -> newThreadsDepChain.remove(t, removeThreadNumber));
+    //      allThreadNumbers.forEach(t -> newThreadsDepChain.remove(removeThreadNumber, t));
+    //    }
+
     return newThreadsDepChain;
   }
 
@@ -283,6 +330,22 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
         != null;
   }
 
+  public Pair<String, String> getCreatedAndExitThreadIds(
+      LocationsState pOldLocs, LocationsState pNewLocs) {
+    Set<String> oldThreadIds = pOldLocs.getMultiThreadState().getThreadIds(),
+        newThreadIds = pNewLocs.getMultiThreadState().getThreadIds();
+
+    ImmutableSet<String> createdThreads =
+        from(newThreadIds).filter(t -> !oldThreadIds.contains(t)).toSet();
+    ImmutableSet<String> exitedThreads =
+        from(oldThreadIds).filter(t -> !newThreadIds.contains(t)).toSet();
+    assert createdThreads.size() <= 1 && exitedThreads.size() <= 1;
+
+    return Pair.of(
+        createdThreads.isEmpty() ? null : createdThreads.iterator().next(),
+        exitedThreads.isEmpty() ? null : exitedThreads.iterator().next());
+  }
+
   public String getCreatedThreadId(LocationsState pOldLocs, LocationsState pNewLocs) {
     Set<String> oldThreadIds = pOldLocs.getMultiThreadState().getThreadIds(),
         newThreadIds = pNewLocs.getMultiThreadState().getThreadIds();
@@ -298,4 +361,7 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
     return builder.getCondDepGraphBuildStatistics();
   }
 
+  public Statistics getMPORStatistics() {
+    return statistics;
+  }
 }

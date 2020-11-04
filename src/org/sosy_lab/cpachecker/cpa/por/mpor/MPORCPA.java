@@ -71,6 +71,7 @@ public class MPORCPA extends AbstractCPA
   @Override
   public void collectStatistics(Collection<Statistics> pStatsCollection) {
     MPORTransferRelation transferRelation = (MPORTransferRelation) this.getTransferRelation();
+    pStatsCollection.add(transferRelation.getMPORStatistics());
     pStatsCollection.add(transferRelation.getCondDepGraphBuildStatistics());
   }
 }
