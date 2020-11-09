@@ -37,7 +37,7 @@ import org.sosy_lab.cpachecker.core.interfaces.StateSpacePartition;
 import org.sosy_lab.cpachecker.core.interfaces.Statistics;
 import org.sosy_lab.cpachecker.core.interfaces.StatisticsProvider;
 
-@Options(prefix = "cpa.ippor")
+@Options(prefix = "cpa.por.ippor")
 public class IPPORCPA extends AbstractCPA
     implements StatisticsProvider, ConfigurableProgramAnalysis {
 

@@ -29,8 +29,6 @@ import org.sosy_lab.cpachecker.cfa.model.CFANode;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.cpa.locationss.LocationsState;
 import org.sosy_lab.cpachecker.util.threading.MultiThreadState;
-import org.sosy_lab.cpachecker.util.threading.SingleThreadState;
-import org.sosy_lab.cpachecker.util.threading.ThreadOperator;
 
 public class PPORState implements AbstractState {
 
@@ -45,11 +43,8 @@ public class PPORState implements AbstractState {
     int initThreadCounter = 0;
     CFAEdge initEdge = pInitNode.getLeavingEdge(0);
 
-    SingleThreadState mainLocState =
-        new SingleThreadState(pInitNode, ThreadOperator.MIN_THREAD_NUM);
-    Map<String, SingleThreadState> locsMap = new HashMap<>();
-    locsMap.put(pMainThreadId, mainLocState);
-    LocationsState initThreadLocs = new LocationsState(locsMap, pMainThreadId, pIsFollowFunCalls);
+    LocationsState initThreadLocs =
+        LocationsState.getInitialInstance(pInitNode, pMainThreadId, pIsFollowFunCalls);
 
     Map<String, Integer> initThreadIdNumbers = new HashMap<>();
     initThreadIdNumbers.put(pMainThreadId, initThreadCounter);

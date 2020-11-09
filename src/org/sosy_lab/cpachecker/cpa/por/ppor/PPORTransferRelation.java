@@ -56,7 +56,6 @@ public class PPORTransferRelation extends SingleEdgeTransferRelation {
     locationsCPA = LocationsCPA.create(pConfig, pLogger, pCfa);
     builder = new ConditionalDepGraphBuilder(pCfa, pConfig, pLogger);
     condDepGraph = builder.build();
-    condDepGraph.export("./output/dep.dot");
   }
 
   @Override

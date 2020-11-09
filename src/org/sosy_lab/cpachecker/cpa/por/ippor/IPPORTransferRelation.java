@@ -38,7 +38,7 @@ import org.sosy_lab.cpachecker.core.interfaces.Precision;
 import org.sosy_lab.cpachecker.core.interfaces.Statistics;
 import org.sosy_lab.cpachecker.cpa.locationss.LocationsCPA;
 import org.sosy_lab.cpachecker.cpa.locationss.LocationsState;
-import org.sosy_lab.cpachecker.cpa.por.ippor.IPPORState.EdgeType;
+import org.sosy_lab.cpachecker.cpa.por.EdgeType;
 import org.sosy_lab.cpachecker.cpa.por.ppor.PPORState;
 import org.sosy_lab.cpachecker.exceptions.CPATransferException;
 import org.sosy_lab.cpachecker.util.Pair;
