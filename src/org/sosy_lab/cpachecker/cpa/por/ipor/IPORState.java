@@ -21,22 +21,13 @@ package org.sosy_lab.cpachecker.cpa.por.ipor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
 import org.sosy_lab.cpachecker.cfa.model.CFANode;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.cpa.locationss.LocationsState;
-import org.sosy_lab.cpachecker.util.threading.SingleThreadState;
-import org.sosy_lab.cpachecker.util.threading.ThreadOperator;
+import org.sosy_lab.cpachecker.cpa.por.EdgeType;
 
 public class IPORState implements AbstractState {
-
-  public enum EdgeType {
-    NEdge, // normal edge (not assume edge).
-    NAEdge, // normal assume edge.
-    GVAEdge // global variable access edge.
-  }
 
   private CFAEdge transferInEdge;
   private EdgeType transferInEdgeType;
@@ -45,12 +36,10 @@ public class IPORState implements AbstractState {
   public static IPORState getInitialInstance(
       CFANode pInitNode, String pMainThreadId, boolean pIsFollowFunCalls) {
     assert pInitNode.getNumLeavingEdges() == 1;
-    CFAEdge initEdge = pInitNode.getLeavingEdge(0);
 
-    SingleThreadState mainLocState = new SingleThreadState(pInitNode, ThreadOperator.MIN_THREAD_NUM);
-    Map<String, SingleThreadState> locsMap = new HashMap<>();
-    locsMap.put(pMainThreadId, mainLocState);
-    LocationsState initThreadLocs = new LocationsState(locsMap, pMainThreadId, pIsFollowFunCalls);
+    CFAEdge initEdge = pInitNode.getLeavingEdge(0);
+    LocationsState initThreadLocs =
+        LocationsState.getInitialInstance(pInitNode, pMainThreadId, pIsFollowFunCalls);
 
     return new IPORState(initEdge, EdgeType.NEdge, initThreadLocs);
   }

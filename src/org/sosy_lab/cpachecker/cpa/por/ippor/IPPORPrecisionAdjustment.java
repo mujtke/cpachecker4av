@@ -28,14 +28,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
-import org.sosy_lab.cpachecker.cfa.model.FunctionEntryNode;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.core.interfaces.Precision;
 import org.sosy_lab.cpachecker.core.interfaces.PrecisionAdjustment;
 import org.sosy_lab.cpachecker.core.interfaces.PrecisionAdjustmentResult;
 import org.sosy_lab.cpachecker.core.reachedset.UnmodifiableReachedSet;
 import org.sosy_lab.cpachecker.cpa.arg.ARGState;
-import org.sosy_lab.cpachecker.cpa.por.ippor.IPPORState.EdgeType;
+import org.sosy_lab.cpachecker.cpa.por.EdgeType;
 import org.sosy_lab.cpachecker.exceptions.CPAException;
 import org.sosy_lab.cpachecker.util.AbstractStates;
 import org.sosy_lab.cpachecker.util.Triple;
@@ -240,8 +239,8 @@ public class IPPORPrecisionAdjustment implements PrecisionAdjustment {
         depSucNode = condDepGraph.getDGNode(pSucEdge);
 
     if (!pThreadCreatedOrExited
-        && !((pSucEdge.getPredecessor() instanceof FunctionEntryNode)
-            || (pPreEdge.getPredecessor() instanceof FunctionEntryNode))
+//        && !((pSucEdge.getPredecessor() instanceof FunctionEntryNode)     // this condition could be removed.
+//            || (pPreEdge.getPredecessor() instanceof FunctionEntryNode))
         && (pSucTid < pPreTid)
         && (condDepGraph.dep(depPreNode, depSucNode) == null)
         && !pPreEdge.getSuccessor().isLoopStart()) {
