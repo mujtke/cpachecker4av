@@ -131,7 +131,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
   private static final String specialSelfBlockFunction = "__VERIFIER_atomic_";
   private static final String cloneFunction = "__cloned_function__";
 
-  private BiMap<CFAEdge, EdgeVtx> nodes;
+  private BiMap<Integer, EdgeVtx> nodes;
   private Table<EdgeVtx, EdgeVtx, CondDepConstraints> depGraph;
   private Map<String, EdgeVtx> selfBlockFunVarCache;
 
@@ -166,8 +166,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     depGraph = buildDependenceGraph(nodes);
     statistics.depGraphBuildTimer.stop();
 
-    return new ConditionalDepGraph(
-        specialBlockFunctionPairs, nodes, depGraph, buildForClonedFunctions, useConditionalDep);
+    return new ConditionalDepGraph(nodes, depGraph, buildForClonedFunctions, useConditionalDep);
   }
 
   /**
@@ -177,8 +176,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
    * @implNote For self-block functions, all the read/write variables in these functions construct a
    *     single DGNode.
    */
-  private BiMap<CFAEdge, EdgeVtx> buildDependenceGraphNodes() {
-    HashBiMap<CFAEdge, EdgeVtx> tmpDGNode = HashBiMap.create();
+  private BiMap<Integer, EdgeVtx> buildDependenceGraphNodes() {
+    HashBiMap<Integer, EdgeVtx> tmpDGNode = HashBiMap.create();
     EdgeSharedVarAccessExtractor extractor =
         new EdgeSharedVarAccessExtractor(specialBlockFunctionPairs, specialSelfBlockFunction);
     Set<CFANode> visitedNodes = new HashSet<>();
@@ -245,7 +244,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
       FunctionEntryNode pFuncEntry,
       EdgeSharedVarAccessExtractor pExtractor,
       Set<CFANode> pVisitedNodes,
-      HashBiMap<CFAEdge, EdgeVtx> pDGNodes) {
+      HashBiMap<Integer, EdgeVtx> pDGNodes) {
     String funcName = pFuncEntry.getFunctionName();
     if (!buildForClonedFunctions && funcName.contains(cloneFunction)) {
       // we do not process the cloned function for sake of the size of dependence graph.
@@ -285,14 +284,14 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
           EdgeVtx blockDepNode =
               handleBlockNode(node, edge, edgeFuncName, pExtractor, waitlist, pVisitedNodes);
           if (blockDepNode != null) {
-            pDGNodes.put(edge, blockDepNode);
+            pDGNodes.put(edge.hashCode(), blockDepNode);
           }
         } else {
           // handle none block.
           EdgeVtx noneBlockDepNode =
               handleNoBlockNode(node, edge, edgeFuncName, pExtractor, waitlist, pVisitedNodes);
           if (noneBlockDepNode != null) {
-            pDGNodes.put(edge, noneBlockDepNode);
+            pDGNodes.put(edge.hashCode(), noneBlockDepNode);
             //            System.out.println(noneBlockDepNode);
           }
         }
@@ -653,7 +652,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
   }
 
   private Table<EdgeVtx, EdgeVtx, CondDepConstraints> buildDependenceGraph(
-      BiMap<CFAEdge, EdgeVtx> pDGNodes) {
+      BiMap<Integer, EdgeVtx> pDGNodes) {
     HashBasedTable<EdgeVtx, EdgeVtx, CondDepConstraints> resDepGraph = HashBasedTable.create();
     DepConstraintBuilder builder = DepConstraintBuilder.getInstance();
     List<EdgeVtx> dgNodes = new ArrayList<>(pDGNodes.values());
@@ -688,6 +687,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     return resDepGraph;
   }
 
+  @SuppressWarnings("unused")
   private void export(ConditionalDepGraph pCDG) {
     if (exportDot != null) {
       try (Writer w = IO.openOutputFile(exportDot, Charset.defaultCharset())) {

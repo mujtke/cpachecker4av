@@ -29,14 +29,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import org.sosy_lab.common.io.IO;
-import org.sosy_lab.cpachecker.cfa.ast.AFunctionCallStatement;
-import org.sosy_lab.cpachecker.cfa.ast.AStatement;
-import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
-import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
-import org.sosy_lab.cpachecker.cfa.model.FunctionCallEdge;
 import org.sosy_lab.cpachecker.util.dependence.DGNode;
 import org.sosy_lab.cpachecker.util.dependence.DepTypeEnum;
 import org.sosy_lab.cpachecker.util.dependence.DependenceGraph;
@@ -51,22 +48,23 @@ public class ConditionalDepGraph extends DependenceGraph {
 
   private final boolean complete;
   private final boolean useCondDep;
-  private final BiMap<String, String> specialBlockFunctionPairs;
-  private BiMap<CFAEdge, EdgeVtx> nodes;
+  private BiMap<Integer, EdgeVtx> nodes;
+  private Map<Integer, EdgeVtx> blockNodes;
   private Table<EdgeVtx, EdgeVtx, CondDepConstraints> depGraph;
 
   public ConditionalDepGraph(
-      final BiMap<String, String> pSpecialBlockFunPairs,
-      final BiMap<CFAEdge, EdgeVtx> pNodes,
+      final BiMap<Integer, EdgeVtx> pNodes,
       final Table<EdgeVtx, EdgeVtx, CondDepConstraints> pDepGraph,
       boolean pComplete,
       boolean pUseCondDep) {
-    assert pSpecialBlockFunPairs != null && pNodes != null && pDepGraph != null;
+    assert pNodes != null && pDepGraph != null;
     complete = pComplete;
     useCondDep = pUseCondDep;
-    specialBlockFunctionPairs = pSpecialBlockFunPairs;
     nodes = pNodes;
     depGraph = pDepGraph;
+
+    blockNodes = new HashMap<>();
+    nodes.values().forEach(n -> n.getBlockEdges().forEach(ne -> blockNodes.put(ne.hashCode(), n)));
   }
 
   @Override
@@ -74,7 +72,7 @@ public class ConditionalDepGraph extends DependenceGraph {
     return DepTypeEnum.Cond;
   }
 
-  public BiMap<CFAEdge, EdgeVtx> getNodes() {
+  public BiMap<Integer, EdgeVtx> getNodes() {
     return nodes;
   }
 
@@ -86,10 +84,6 @@ public class ConditionalDepGraph extends DependenceGraph {
     return nodes.values();
   }
 
-  public Collection<CFAEdge> getAllEdges() {
-    return nodes.keySet();
-  }
-
   public boolean isUseCondDep() {
     return useCondDep;
   }
@@ -98,8 +92,7 @@ public class ConditionalDepGraph extends DependenceGraph {
     return complete;
   }
 
-  public CondDepConstraints getCondDepConstraints(final CFAEdge e1, final CFAEdge e2) {
-    assert e1 != null && e2 != null;
+  public CondDepConstraints getCondDepConstraints(final Integer e1, final Integer e2) {
     return depGraph.get(nodes.get(e1), nodes.get(e2));
   }
 
@@ -123,8 +116,9 @@ public class ConditionalDepGraph extends DependenceGraph {
       try (Writer w = IO.openOutputFile(exportPath, Charset.defaultCharset())) {
         List<String> info = new ArrayList<>();
 
-        for (Entry<CFAEdge, EdgeVtx> node : nodes.entrySet()) {
-          info.add(node.getKey() + "\t" + node.getValue());
+        for (Entry<Integer, EdgeVtx> node : nodes.entrySet()) {
+          EdgeVtx nodeValue = node.getValue();
+          info.add(nodeValue.getBlockStartEdge() + "\t" + nodeValue);
         }
         Joiner.on("\n").appendTo(w, info);
 
@@ -157,61 +151,23 @@ public class ConditionalDepGraph extends DependenceGraph {
     return depGraph.get(n2, n1);
   }
 
-  public boolean contains(final CFAEdge pEdge) {
-    return nodes.containsKey(pEdge);
+  public boolean contains(final Integer pEdgeHash) {
+    return nodes.containsKey(pEdgeHash);
   }
 
-  public DGNode getDGNode(final CFAEdge pEdge) {
-    return nodes.get(pEdge);
+  public boolean blockContains(final Integer pEdgeHash) {
+    return blockNodes.containsKey(pEdgeHash);
   }
 
-  public DGNode getBlockDGNode(final CFAEdge pEdge) {
-    if (pEdge != null) {
-      EdgeVtx directGet = nodes.get(pEdge);
+  public DGNode getDGNode(final Integer pEdgeHash) {
+    return nodes.get(pEdgeHash);
+  }
 
-      if (directGet != null) {
-        return directGet;
-      } else {
-        // this edge may be a block end edge.
-        String edgeFunName = getEdgeFunctionName(pEdge);
-        if (edgeFunName != null && specialBlockFunctionPairs.containsValue(edgeFunName)) {
-          for (EdgeVtx node : nodes.values()) {
-            if (node.getBlockEdges().contains(pEdge)) {
-              return node;
-            }
-          }
-        }
-        return null;
-      }
+  public DGNode getBlockDGNode(final Integer pEdgeHash) {
+    if (pEdgeHash != null) {
+      return blockNodes.get(pEdgeHash);
     }
     return null;
   }
 
-  private String getEdgeFunctionName(CFAEdge pEdge) {
-    switch (pEdge.getEdgeType()) {
-      case StatementEdge:
-        {
-          final AStatement stmt = ((AStatementEdge) pEdge).getStatement();
-          if (stmt instanceof AFunctionCallStatement) {
-            String funcName =
-                ((AFunctionCallStatement) stmt)
-                    .getFunctionCallExpression()
-                    .getFunctionNameExpression()
-                    .toString();
-            return funcName;
-          }
-          return null;
-        }
-      case FunctionCallEdge:
-        {
-          return ((FunctionCallEdge) pEdge).getSuccessor().getFunctionName();
-        }
-      default:
-        return null;
-    }
-  }
-
-  //  public DGNode getDGNode(final CFAEdge pEdge) {
-  //    return nodes.get(pEdge);
-  //  }
 }
