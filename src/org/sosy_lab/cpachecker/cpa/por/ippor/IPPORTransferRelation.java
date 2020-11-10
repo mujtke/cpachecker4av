@@ -149,7 +149,7 @@ public class IPPORTransferRelation extends SingleEdgeTransferRelation {
   public EdgeType determineEdgeType(final CFAEdge pEdge) {
     assert pEdge != null;
 
-    if (condDepGraph.contains(pEdge)) {
+    if (condDepGraph.contains(pEdge.hashCode())) {
       return EdgeType.GVAEdge;
     } else if (pEdge instanceof CAssumeEdge) {
       return EdgeType.NAEdge;

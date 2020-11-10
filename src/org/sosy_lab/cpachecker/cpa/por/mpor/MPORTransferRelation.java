@@ -325,9 +325,14 @@ public class MPORTransferRelation extends SingleEdgeTransferRelation {
     CFAEdge threadLInEdge = pThreadsDynamicInfo.getThreadEdgeByNumber(pThreadNumberL),
         threadIInEdge = pThreadsDynamicInfo.getThreadEdgeByNumber(pThreadNumberI);
 
-    return (condDepGraph.dep(
-            condDepGraph.getBlockDGNode(threadLInEdge), condDepGraph.getBlockDGNode(threadIInEdge)))
-        != null;
+    if (threadLInEdge == null || threadIInEdge == null) {
+      return false;
+    } else {
+      return (condDepGraph.dep(
+              condDepGraph.getBlockDGNode(threadLInEdge.hashCode()),
+              condDepGraph.getBlockDGNode(threadIInEdge.hashCode())))
+          != null;
+    }
   }
 
   public Pair<String, String> getCreatedAndExitThreadIds(

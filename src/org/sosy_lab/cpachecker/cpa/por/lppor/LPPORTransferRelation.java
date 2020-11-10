@@ -167,8 +167,8 @@ public class LPPORTransferRelation extends SingleEdgeTransferRelation {
       int pSucTid,
       CFAEdge pSucEdge,
       boolean pThreadCreatedOrExited) {
-    DGNode depPreNode = condDepGraph.getBlockDGNode(pPreEdge),
-        depSucNode = condDepGraph.getBlockDGNode(pSucEdge);
+    DGNode depPreNode = condDepGraph.getBlockDGNode(pPreEdge.hashCode()),
+        depSucNode = condDepGraph.getBlockDGNode(pSucEdge.hashCode());
 
     // we perform the PPOR step only when the precursor edge and the successor edge are both
     // potential-conflict block.

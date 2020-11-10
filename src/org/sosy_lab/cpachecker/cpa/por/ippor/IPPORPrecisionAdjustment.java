@@ -235,8 +235,8 @@ public class IPPORPrecisionAdjustment implements PrecisionAdjustment {
       int pSucTid,
       CFAEdge pSucEdge,
       boolean pThreadCreatedOrExited) {
-    DGNode depPreNode = condDepGraph.getDGNode(pPreEdge),
-        depSucNode = condDepGraph.getDGNode(pSucEdge);
+    DGNode depPreNode = condDepGraph.getDGNode(pPreEdge.hashCode()),
+        depSucNode = condDepGraph.getDGNode(pSucEdge.hashCode());
 
     if (!pThreadCreatedOrExited
 //        && !((pSucEdge.getPredecessor() instanceof FunctionEntryNode)     // this condition could be removed.
