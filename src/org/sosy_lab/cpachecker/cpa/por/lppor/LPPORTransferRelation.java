@@ -30,8 +30,12 @@ import org.sosy_lab.common.configuration.Configuration;
 import org.sosy_lab.common.configuration.InvalidConfigurationException;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
+import org.sosy_lab.cpachecker.cfa.ast.AExpression;
+import org.sosy_lab.cpachecker.cfa.ast.AFunctionCall;
+import org.sosy_lab.cpachecker.cfa.ast.AIdExpression;
+import org.sosy_lab.cpachecker.cfa.ast.AStatement;
+import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
-import org.sosy_lab.cpachecker.cfa.model.FunctionEntryNode;
 import org.sosy_lab.cpachecker.core.defaults.SingleEdgeTransferRelation;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.core.interfaces.Precision;
@@ -50,6 +54,24 @@ public class LPPORTransferRelation extends SingleEdgeTransferRelation {
   private final LocationsTransferRelation locTransferRelation;
   private final ConditionalDepGraphBuilder builder;
   private final ConditionalDepGraph condDepGraph;
+
+  public static final String THREAD_START = "pthread_create";
+  public static final String THREAD_JOIN = "pthread_join";
+  private static final String THREAD_EXIT = "pthread_exit";
+  private static final String THREAD_MUTEX_LOCK = "pthread_mutex_lock";
+  private static final String THREAD_MUTEX_UNLOCK = "pthread_mutex_unlock";
+  private static final String VERIFIER_ATOMIC_BEGIN = "__VERIFIER_atomic_begin";
+  private static final String VERIFIER_ATOMIC_END = "__VERIFIER_atomic_end";
+
+  private static final ImmutableSet<String> THREAD_FUNCTIONS =
+      ImmutableSet.of(
+          THREAD_START,
+          THREAD_MUTEX_LOCK,
+          THREAD_MUTEX_UNLOCK,
+          THREAD_JOIN,
+          THREAD_EXIT,
+          VERIFIER_ATOMIC_BEGIN,
+          VERIFIER_ATOMIC_END);
 
   public LPPORTransferRelation(Configuration pConfig, LogManager pLogger, CFA pCfa)
       throws InvalidConfigurationException {
@@ -167,17 +189,23 @@ public class LPPORTransferRelation extends SingleEdgeTransferRelation {
       int pSucTid,
       CFAEdge pSucEdge,
       boolean pThreadCreatedOrExited) {
+
+    // we perform the PPOR step only when the precursor edge and the successor edge are both
+    // potential-conflict block.
+    if (!canSkipable(pPreEdge) || !canSkipable(pSucEdge)) {
+      return false;
+    }
+
     DGNode depPreNode = condDepGraph.getBlockDGNode(pPreEdge.hashCode()),
         depSucNode = condDepGraph.getBlockDGNode(pSucEdge.hashCode());
 
     // we perform the PPOR step only when the precursor edge and the successor edge are both
     // potential-conflict block.
-    if (depPreNode == null || depSucNode == null) {
-      return false;
-    }
+    //    if (depPreNode == null || depSucNode == null) {
+    //      return false;
+    //    }
 
     if (!pThreadCreatedOrExited
-        && !(pSucEdge.getPredecessor() instanceof FunctionEntryNode)
         && (pSucTid < pPreTid)
         && (condDepGraph.dep(depPreNode, depSucNode) == null)
         && !pPreEdge.getSuccessor().isLoopStart()) {
@@ -185,6 +213,52 @@ public class LPPORTransferRelation extends SingleEdgeTransferRelation {
     }
 
     return false;
+  }
+
+  private boolean canSkipable(CFAEdge pEdge) {
+    return isImportantForThreading(pEdge) || isReturnEdge(pEdge);
+  }
+
+  private static boolean isImportantForThreading(CFAEdge pCfaEdge) {
+    switch (pCfaEdge.getEdgeType()) {
+      case StatementEdge:
+        {
+          AStatement statement = ((AStatementEdge) pCfaEdge).getStatement();
+          if (statement instanceof AFunctionCall) {
+            AExpression functionNameExp =
+                ((AFunctionCall) statement).getFunctionCallExpression().getFunctionNameExpression();
+            if (functionNameExp instanceof AIdExpression) {
+              return THREAD_FUNCTIONS.contains(((AIdExpression) functionNameExp).getName());
+            }
+          }
+          return false;
+        }
+      case FunctionCallEdge:
+        // @Deprecated, for old benchmark tasks
+        return pCfaEdge.getSuccessor().getFunctionName().startsWith(VERIFIER_ATOMIC_BEGIN);
+      case FunctionReturnEdge:
+        // @Deprecated, for old benchmark tasks
+        return pCfaEdge.getPredecessor().getFunctionName().startsWith(VERIFIER_ATOMIC_END);
+      default:
+        return false;
+    }
+  }
+
+  private static boolean isReturnEdge(CFAEdge pEdge) {
+    switch (pEdge.getEdgeType()) {
+      case FunctionReturnEdge:
+      case ReturnStatementEdge:
+      case CallToReturnEdge:
+        return true;
+      case BlankEdge:
+        if (pEdge.getDescription().contains("default return")) {
+          return true;
+        } else {
+          return false;
+        }
+      default:
+        return false;
+    }
   }
 
   public Statistics getCondDepGraphBuildStatistics() {
