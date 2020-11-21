@@ -39,13 +39,15 @@ public class EdgeVtx implements DGNode {
   private final Set<Var> gReadVars;
   private final Set<Var> gWriteVars;
   private final boolean simpleEdgeVtx;
+  private int blockEdgeNumber;
 
   public EdgeVtx(
       final CFAEdge pEdge,
       final Set<CFAEdge> pEdges,
       final Set<Var> pGRVars,
       final Set<Var> pGWVars,
-      boolean pSimpleEdgeVtx) {
+      boolean pSimpleEdgeVtx,
+      int pBlockEdgeNumber) {
     assert pGRVars != null && pGWVars != null;
 
     blockStartEdge = pEdge;
@@ -53,6 +55,7 @@ public class EdgeVtx implements DGNode {
     gReadVars = Set.copyOf(pGRVars);
     gWriteVars = Set.copyOf(pGWVars);
     simpleEdgeVtx = pSimpleEdgeVtx;
+    blockEdgeNumber = pBlockEdgeNumber;
   }
 
   public EdgeVtx(final EdgeVtx pVtxOther) {
@@ -63,6 +66,7 @@ public class EdgeVtx implements DGNode {
     gReadVars = Set.copyOf(pVtxOther.gReadVars);
     gWriteVars = Set.copyOf(pVtxOther.gWriteVars);
     simpleEdgeVtx = pVtxOther.simpleEdgeVtx;
+    blockEdgeNumber = pVtxOther.blockEdgeNumber;
   }
 
   public CFAEdge getBlockStartEdge() {
@@ -85,12 +89,21 @@ public class EdgeVtx implements DGNode {
     return simpleEdgeVtx;
   }
 
+  public void setBlockEdgeNumber(int pBlockEdgeNumber) {
+    blockEdgeNumber = pBlockEdgeNumber;
+  }
+
+  public int getBlockEdgeNumber() {
+    return blockEdgeNumber;
+  }
+
   public EdgeVtx mergeGlobalRWVarsOnly(EdgeVtx pOther) {
     assert pOther != null;
 
     Set<Var> tmpGRVars = Sets.union(gReadVars, pOther.gReadVars),
         tmpGWVars = Sets.union(gWriteVars, pOther.gWriteVars);
-    return new EdgeVtx(blockStartEdge, blockEdges, tmpGRVars, tmpGWVars, simpleEdgeVtx);
+    return new EdgeVtx(
+        blockStartEdge, blockEdges, tmpGRVars, tmpGWVars, simpleEdgeVtx, blockEdgeNumber);
   }
 
   /**

@@ -285,6 +285,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
               handleBlockNode(node, edge, edgeFuncName, pExtractor, waitlist, pVisitedNodes);
           if (blockDepNode != null) {
             pDGNodes.put(edge.hashCode(), blockDepNode);
+            statistics.blockNumber.inc();
+            statistics.blockSize.setNextValue(blockDepNode.getBlockEdgeNumber());
           }
         } else {
           // handle none block.
@@ -293,6 +295,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
           if (noneBlockDepNode != null) {
             pDGNodes.put(edge.hashCode(), noneBlockDepNode);
             //            System.out.println(noneBlockDepNode);
+            statistics.blockNumber.inc();
+            statistics.blockSize.setNextValue(noneBlockDepNode.getBlockEdgeNumber());
           }
         }
       }
@@ -405,7 +409,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
                       Set.of(pEdge),
                       selfBlockParamDGNode.getgReadVars(),
                       selfBlockParamDGNode.getgWriteVars(),
-                      selfBlockParamDGNode.isSimpleEdgeVtx())
+                      selfBlockParamDGNode.isSimpleEdgeVtx(),
+                      selfBlockParamDGNode.getBlockEdgeNumber())
                   : null;
           selfBlockContentDGNode =
               selfBlockContentDGNode != null
@@ -414,7 +419,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
                       Set.of(pEdge),
                       selfBlockContentDGNode.getgReadVars(),
                       selfBlockContentDGNode.getgWriteVars(),
-                      selfBlockContentDGNode.isSimpleEdgeVtx())
+                      selfBlockContentDGNode.isSimpleEdgeVtx(),
+                      selfBlockContentDGNode.getBlockEdgeNumber())
                   : null;
           // get the return node of this self-block function.
           CFANode sucNode =
@@ -480,7 +486,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     Set<CFAEdge> visitedEdges = new HashSet<>(), blockEdges = new HashSet<>();
     blockEdges.add(pBlockStartEdge);
     EdgeVtx resDepNode = (EdgeVtx) pExtractor.extractESVAInfo(pBlockStartEdge);
-    int innerProcEdgeNumber = 0;
+    int innerProcEdgeNumber = 0, processedEdgeNumber = 0;
 
     // DFS strategy，each pair in the block stack represents the CFANode and the next successor index
     // of this node.
@@ -520,6 +526,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
           visitedEdges.add(nextEdge);
           pWaitlist.add(nextEdgeSucNode);
           pVisitedNodes.add(nextEdgeSucNode);
+          ++processedEdgeNumber;
           continue;
         } else {
           // process block inner function call (leaving summary edge)
@@ -535,6 +542,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
             blockStack.push(Pair.of(summarySucNode, 0));
             visitedEdges.add(leavingSummaryEdge);
             pVisitedNodes.add(summarySucNode);
+            ++processedEdgeNumber;
           }
         }
       }
@@ -548,6 +556,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
       blockStack.push(Pair.of(nextEdgeSucNode, 0));
       visitedEdges.add(nextEdge);
       pVisitedNodes.add(nextEdgeSucNode);
+      ++processedEdgeNumber;
     }
 
     // mark that this block is not a simple block.
@@ -558,7 +567,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
               blockEdges,
               resDepNode.getgReadVars(),
               resDepNode.getgWriteVars(),
-              true);
+              true,
+              processedEdgeNumber);
     } else {
       resDepNode =
           new EdgeVtx(
@@ -566,7 +576,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
               blockEdges,
               resDepNode.getgReadVars(),
               resDepNode.getgWriteVars(),
-              false);
+              false,
+              processedEdgeNumber);
     }
 
     // empty block, we should not put it into the dependence graph.
@@ -619,7 +630,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
 
       // build the DGNode of this function.
       CFAEdge initEdge = pFunEntry.getEnteringEdge(0);
-      EdgeVtx resDGNode = new EdgeVtx(initEdge, Set.of(initEdge), Set.of(), Set.of(), false);
+      EdgeVtx resDGNode = new EdgeVtx(initEdge, Set.of(initEdge), Set.of(), Set.of(), false, 0);
+      int processedEdgeNumber = 0;
 
       waitlist.add(pFunEntry);
       while (!waitlist.isEmpty()) {
@@ -628,6 +640,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
         for (int i = 0; i < node.getNumLeavingEdges(); ++i) {
           CFAEdge edge = node.getLeavingEdge(i);
           EdgeVtx tmpDGNode = (EdgeVtx) pExtractor.extractESVAInfo(edge);
+          ++processedEdgeNumber;
 
           if (tmpDGNode != null) {
             resDGNode = resDGNode.mergeGlobalRWVarsOnly(tmpDGNode);
@@ -643,6 +656,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
 
       // for empty self block function (i.e., this self block do not access global variables), we
       // need not preserve it.
+      resDGNode.setBlockEdgeNumber(processedEdgeNumber);
       if (resDGNode.getgReadVars().isEmpty() && resDGNode.getgWriteVars().isEmpty()) {
         resDGNode = null;
       }
@@ -715,6 +729,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
           put(pOut, 1, statistics.gVarAccessNodeNumber);
           put(pOut, 1, statistics.depNodePairNumber);
           put(pOut, 1, statistics.unCondDepNodePairNumber);
+          put(pOut, 1, statistics.blockNumber);
+          put(pOut, 1, statistics.blockSize);
         }
       }
 

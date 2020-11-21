@@ -37,4 +37,6 @@ public class CondDepGraphBuilderStatistics {
   final StatCounter depNodePairNumber = new StatCounter("Number of dependent node pairs");
   final StatCounter unCondDepNodePairNumber =
       new StatCounter("Number of un-conditional dependent node pairs");
+  final StatCounter blockNumber = new StatCounter("Number of block");
+  final StatInt blockSize = new StatInt(StatKind.COUNT, "Size of block");
 }
