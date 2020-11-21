@@ -338,27 +338,30 @@ public class DepConstraintBuilder {
     Set<Var> confVarSet = Sets.union(r1w2, Sets.union(w1r2, w1w2));
 
     if (!confVarSet.isEmpty()) {
-      // for simple DGNode, there are only one potential conflict variable.
-      assert confVarSet.size() == 1;
-      CType type = confVarSet.iterator().next().getVarType();
+      // for simple DGNode which contains only one potential conflict variable, we special process.
+      if (confVarSet.size() == 1) {
+        CType type = confVarSet.iterator().next().getVarType();
+        CExpressionAssignmentStatement stmt1 = getAssignmentStatement(pNode1.getBlockStartEdge()),
+            stmt2 = getAssignmentStatement(pNode2.getBlockStartEdge());
 
-      CExpressionAssignmentStatement stmt1 = getAssignmentStatement(pNode1.getBlockStartEdge()),
-          stmt2 = getAssignmentStatement(pNode2.getBlockStartEdge());
-
-      if (stmt1 == null && stmt2 == null) {
-        // both the two edges are not assignment statements, but there is a global variable they
-        // accessed.
-        return CondDepConstraints.unCondDepConstraint;
-      } else if (stmt1 != null && stmt2 != null) {
-        return pUseCondDep
-            ? handleWRWR(stmt1, stmt2, type)
-            : CondDepConstraints.unCondDepConstraint;
-      } else if (stmt1 == null || stmt2 == null) {
-        if (stmt1 == null) {
-          return pUseCondDep ? handleRDWR(stmt2, type) : CondDepConstraints.unCondDepConstraint;
-        } else {
-          return pUseCondDep ? handleRDWR(stmt1, type) : CondDepConstraints.unCondDepConstraint;
+        if (stmt1 == null && stmt2 == null) {
+          // both the two edges are not assignment statements, but there is a global variable they
+          // accessed.
+          return CondDepConstraints.unCondDepConstraint;
+        } else if (stmt1 != null && stmt2 != null) {
+          return pUseCondDep
+              ? handleWRWR(stmt1, stmt2, type)
+              : CondDepConstraints.unCondDepConstraint;
+        } else if (stmt1 == null || stmt2 == null) {
+          if (stmt1 == null) {
+            return pUseCondDep ? handleRDWR(stmt2, type) : CondDepConstraints.unCondDepConstraint;
+          } else {
+            return pUseCondDep ? handleRDWR(stmt1, type) : CondDepConstraints.unCondDepConstraint;
+          }
         }
+      } else {
+        // have multiple potential conflict variables.
+        return CondDepConstraints.unCondDepConstraint;
       }
     }
 
