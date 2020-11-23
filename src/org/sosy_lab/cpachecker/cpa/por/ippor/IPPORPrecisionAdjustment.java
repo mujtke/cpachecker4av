@@ -104,7 +104,7 @@ public class IPPORPrecisionAdjustment implements PrecisionAdjustment {
       int argParStateId = argParState.getStateId();
 
       // checkout whether all the successor edges of argParState are GVAEdge, if true, we mark the
-      // argCurState and argParState as a MPOR point.
+      // argCurState and argParState as a PPOR point.
       Set<ARGState> gvaSuccessors, naSuccessors, nSuccessors;
       if (parentTypedChildCache.containsKey(argParStateId)) {
         Triple<Set<ARGState>, Set<ARGState>, Set<ARGState>> typedChildCache =
@@ -120,10 +120,10 @@ public class IPPORPrecisionAdjustment implements PrecisionAdjustment {
             argParStateId, Triple.of(gvaSuccessors, naSuccessors, nSuccessors));
       }
 
-      // update the mark of Inf/MPOR point of the current and parent states.
-      boolean parStateMPORPoint =
+      // update the mark of Inf/PPOR point of the current and parent states.
+      boolean parStatePPORPoint =
           !gvaSuccessors.isEmpty() && naSuccessors.isEmpty() && nSuccessors.isEmpty();
-      if (parStateMPORPoint && !imporCurState.isPporPoint()) {
+      if (parStatePPORPoint && !imporCurState.isPporPoint()) {
         imporParState.setPporPoint(false);
         imporCurState.setPporPoint(true);
       }
@@ -135,9 +135,9 @@ public class IPPORPrecisionAdjustment implements PrecisionAdjustment {
         imporCurState.setPporPoint(false);
       }
 
-      //// now, we explore the successor states according to the MPOR point mark.
+      //// now, we explore the successor states according to the PPOR point mark.
       if (imporParState.isPporPoint() && imporCurState.isPporPoint()) {
-        // for MPOR point.
+        // for PPOR point.
         int oldThreadIdNumber = imporParState.getTransferInEdgeThreadId(),
             newThreadIdNumber = imporCurState.getTransferInEdgeThreadId();
         CFAEdge oldTransferEdge = imporParState.getTransferInEdge(),
@@ -159,7 +159,7 @@ public class IPPORPrecisionAdjustment implements PrecisionAdjustment {
             PrecisionAdjustmentResult.create(
                 pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
       } else {
-        // for not MPOR point.
+        // for not PPOR point.
         assert gvaSuccessors.isEmpty();
 
         // explore this 'normal' successor.
@@ -226,7 +226,7 @@ public class IPPORPrecisionAdjustment implements PrecisionAdjustment {
    *     control flow; 4) the transfered edge does not induce thread creation or exit; 5) skip the
    *     starting edge of a created thread.
    * @implNote Notice that, the three constraints 3), 4) and 5) are used for confining the
-   *     utilization of MPOR into the normal states, i.e., avoids the application of MPOR out of
+   *     utilization of PPOR into the normal states, i.e., avoids the application of PPOR out of
    *     bounds.
    */
   public boolean canSkip(
