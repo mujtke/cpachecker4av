@@ -117,4 +117,5 @@ public class PeepholeState implements AbstractState {
     assert thread != null && threadIdNumbers.containsKey(thread);
     return threadIdNumbers.get(thread);
   }
+
 }
