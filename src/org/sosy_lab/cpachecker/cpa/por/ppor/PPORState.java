@@ -19,8 +19,6 @@
  */
 package org.sosy_lab.cpachecker.cpa.por.ppor;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -32,10 +30,7 @@ import org.sosy_lab.cpachecker.util.threading.MultiThreadState;
 
 public class PPORState implements AbstractState {
 
-  private int threadCounter;
-  private CFAEdge transferInEdge;
-  private LocationsState threadLocs;
-  private Map<String, Integer> threadIdNumbers;
+  private PeepholeState stateInstance;
 
   public static PPORState getInitialInstance(
       CFANode pInitNode, String pMainThreadId, boolean pIsFollowFunCalls) {
@@ -57,17 +52,14 @@ public class PPORState implements AbstractState {
       CFAEdge pEdge,
       LocationsState pLocs,
       Map<String, Integer> pThrdIdNumbers) {
-    assert pThreadCounter >= 0;
-
-    threadCounter = pThreadCounter;
-    transferInEdge = checkNotNull(pEdge);
-    threadLocs = checkNotNull(pLocs);
-    threadIdNumbers = checkNotNull(pThrdIdNumbers);
+    stateInstance = new PeepholeState(pThreadCounter, pEdge, pLocs, pThrdIdNumbers);
   }
 
   @Override
   public int hashCode() {
-    return transferInEdge.hashCode() + threadLocs.hashCode() + threadIdNumbers.hashCode();
+    return stateInstance.getProcEdge().hashCode()
+        + stateInstance.getThreadLocs().hashCode()
+        + stateInstance.getThreadIdNumbers().hashCode();
   }
 
   @Override
@@ -78,9 +70,9 @@ public class PPORState implements AbstractState {
 
     if (pObj != null && pObj instanceof PPORState) {
       PPORState other = (PPORState) pObj;
-      return transferInEdge.equals(other.transferInEdge)
-          && threadLocs.equals(other.threadLocs)
-          && threadIdNumbers.equals(other.threadIdNumbers);
+      return this.getTransferInEdge().equals(other.getTransferInEdge())
+          && this.getThreadLocs().equals(other.getThreadLocs())
+          && this.getThreadIdNumbers().equals(other.getThreadIdNumbers());
     }
 
     return false;
@@ -88,6 +80,9 @@ public class PPORState implements AbstractState {
 
   @Override
   public String toString() {
+    LocationsState threadLocs = this.getThreadLocs();
+    Map<String, Integer> threadIdNumbers = this.getThreadIdNumbers();
+
     MultiThreadState threadStates = threadLocs.getMultiThreadState();
     Set<String> threads = threadStates.getThreadIds();
     String result = "( ";
@@ -105,27 +100,32 @@ public class PPORState implements AbstractState {
   }
 
   public int getThreadCounter() {
-    return threadCounter;
+    return stateInstance.getThreadCounter();
   }
 
   public CFAEdge getTransferInEdge() {
-    return transferInEdge;
+    return stateInstance.getProcEdge();
   }
 
   public LocationsState getThreadLocs() {
-    return threadLocs;
+    return stateInstance.getThreadLocs();
   }
 
   public Map<String, Integer> getThreadIdNumbers() {
-    return threadIdNumbers;
+    return stateInstance.getThreadIdNumbers();
   }
 
   public int getThreadIdNumber(String pThrdName) {
+    Map<String, Integer> threadIdNumbers = this.getThreadIdNumbers();
     assert threadIdNumbers.containsKey(pThrdName);
     return threadIdNumbers.get(pThrdName);
   }
 
   public int getTransferInEdgeThreadId() {
+    CFAEdge transferInEdge = this.getTransferInEdge();
+    LocationsState threadLocs = this.getThreadLocs();
+    Map<String, Integer> threadIdNumbers = this.getThreadIdNumbers();
+
     CFANode inEdgeSuc = transferInEdge.getSuccessor();
     String thread = threadLocs.getThreadName(inEdgeSuc);
     thread = (thread == null) ? threadLocs.getThreadName(transferInEdge.getPredecessor()) : thread;
