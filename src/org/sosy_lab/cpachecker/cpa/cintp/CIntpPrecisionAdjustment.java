@@ -422,17 +422,6 @@ public class CIntpPrecisionAdjustment implements PrecisionAdjustment {
       results.add(itp);
     }
 
-    Map<BooleanFormula, Set<String>> varMap = new HashMap<>();
-    for (int i = 0; i < results.size(); ++i) {
-      BooleanFormula f = results.get(i);
-      Set<String> vars = fmgr.extractVariableNames(fmgr.uninstantiate(f));
-      varMap.put(f, vars);
-      if (vars.size() > 1) {
-        int k = 0;
-        ++k;
-      }
-    }
-
     return results;
   }
 
