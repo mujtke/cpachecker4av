@@ -1,8 +1,26 @@
+# This file is part of CPAchecker,
+# a tool for configurable software verification:
+# https://cpachecker.sosy-lab.org
+#
+# SPDX-FileCopyrightText: 2007-2020 Dirk Beyer <https://www.sosy-lab.org>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # /
+*.swp
 *.pyc
 *~
 __pycache__
 a.out
+
+/.checkstyle
+/.classpath
+/.factorypath.template
+/.flake8
+/.gitlab-ci.yml
+/.pydevproject
+/.reuse/
+/.settings/
 
 # /
 /bin
@@ -23,7 +41,6 @@ a.out
 /JUnit.html
 /.apt-generated
 /.factorypath
-/.test.c
 
 # /lib/
 /lib/java
@@ -68,11 +85,11 @@ a.out
 .idea/findbugs-idea.xml
 .idea/junitgenerator-prj-settings.xml
 .idea/vcs.xml
-/test.c
-/.factorypath.template
-/.checkstyle
-/.classpath
-/.gitlab-ci.yml
-/.pydevproject
-/hs_err_pid11680.log
-/test2.c
+	modified:   .gitignore
+	modified:   .project
+	deleted:    Authors.txt
+	deleted:    Copyright.txt
+	deleted:    License_Apache-2.0.txt
+	deleted:    NEWS.txt
+	deleted:    benchmark.xml
+
