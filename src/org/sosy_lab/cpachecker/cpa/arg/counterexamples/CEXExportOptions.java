@@ -1,26 +1,11 @@
-/*
- *  CPAchecker is a tool for configurable software verification.
- *  This file is part of CPAchecker.
- *
- *  Copyright (C) 2007-2018  Dirk Beyer
- *  All rights reserved.
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- *
- *  CPAchecker web page:
- *    http://cpachecker.sosy-lab.org
- */
+// This file is part of CPAchecker,
+// a tool for configurable software verification:
+// https://cpachecker.sosy-lab.org
+//
+// SPDX-FileCopyrightText: 2007-2020 Dirk Beyer <https://www.sosy-lab.org>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 package org.sosy_lab.cpachecker.cpa.arg.counterexamples;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -60,9 +45,12 @@ public final class CEXExportOptions {
       description = "export counterexample as source file")
   private boolean exportSource = true;
 
-  @Option(secure = true, name = "graph", description = "export counterexample as graph")
+  @Option(
+      secure = true,
+      name = "graph",
+      description = "export counterexample as Dot/Graphviz visualization")
   @FileOption(FileOption.Type.OUTPUT_FILE)
-  private PathTemplate errorPathGraphFile = PathTemplate.ofFormatString("Counterexample.%d.dot");
+  private PathTemplate errorPathDotFile = PathTemplate.ofFormatString("Counterexample.%d.dot");
 
   @Option(secure = true, name = "automaton", description = "export counterexample as automaton")
   @FileOption(FileOption.Type.OUTPUT_FILE)
@@ -98,18 +86,18 @@ public final class CEXExportOptions {
   @Option(
       secure = true,
       name = "graphml",
-      description = "export counterexample to file as GraphML automaton")
+      description = "export counterexample witness as GraphML automaton")
   @FileOption(FileOption.Type.OUTPUT_FILE)
-  private PathTemplate errorPathAutomatonGraphmlFile =
+  private PathTemplate errorPathWitnessFile =
       PathTemplate.ofFormatString("Counterexample.%d.graphml");
 
   @Option(
       secure = true,
-      name = "dot",
-      description = "export counterexample to file as Dot/Graphviz automaton")
+      name = "witnessGraph",
+      description = "export counterexample witness as Dot/Graphviz visualization")
   @FileOption(FileOption.Type.OUTPUT_FILE)
-  private PathTemplate errorPathAutomatonDotFile =
-      PathTemplate.ofFormatString("Counterexample.%d.dot");
+  private PathTemplate errorPathWitnessDotFile =
+      PathTemplate.ofFormatString("Counterexample.%d.witness.dot");
 
   @Option(secure = true, description = "Export extended witness in addition to regular witness")
   private boolean exportExtendedWitness = false;
@@ -160,7 +148,7 @@ public final class CEXExportOptions {
         && getCoreFile() == null
         && getCoveragePrefix() == null
         && getErrorPathFile() == null
-        && getGraphFile() == null
+        && getDotFile() == null
         && getSourceFile() == null
         && getTestHarnessFile() == null
         && getWitnessFile() == null
@@ -201,11 +189,11 @@ public final class CEXExportOptions {
   }
 
   @Nullable
-  PathTemplate getGraphFile() {
+  PathTemplate getDotFile() {
     if (!exportErrorPath) {
       return null;
     }
-    return errorPathGraphFile;
+    return errorPathDotFile;
   }
 
   @Nullable
@@ -229,7 +217,7 @@ public final class CEXExportOptions {
     if (!exportErrorPath) {
       return null;
     }
-    return exportWitness ? errorPathAutomatonGraphmlFile : null;
+    return exportWitness ? errorPathWitnessFile : null;
   }
 
   @Nullable
@@ -237,7 +225,7 @@ public final class CEXExportOptions {
     if (!exportErrorPath) {
       return null;
     }
-    return exportWitness ? errorPathAutomatonDotFile : null;
+    return exportWitness ? errorPathWitnessDotFile : null;
   }
 
   @Nullable

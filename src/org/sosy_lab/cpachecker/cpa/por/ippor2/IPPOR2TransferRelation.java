@@ -30,6 +30,11 @@ import org.sosy_lab.common.configuration.Configuration;
 import org.sosy_lab.common.configuration.InvalidConfigurationException;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
+import org.sosy_lab.cpachecker.cfa.ast.AExpression;
+import org.sosy_lab.cpachecker.cfa.ast.AFunctionCall;
+import org.sosy_lab.cpachecker.cfa.ast.AIdExpression;
+import org.sosy_lab.cpachecker.cfa.ast.AStatement;
+import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
 import org.sosy_lab.cpachecker.cfa.model.c.CAssumeEdge;
 import org.sosy_lab.cpachecker.core.defaults.SingleEdgeTransferRelation;
@@ -141,12 +146,31 @@ public class IPPOR2TransferRelation extends SingleEdgeTransferRelation {
   public EdgeType determineEdgeType(final CFAEdge pEdge) {
     assert pEdge != null;
 
-    if (condDepGraph.contains(pEdge.hashCode())) {
+    if (condDepGraph.contains(pEdge.hashCode()) || isThreadCreationEdge(pEdge)) {
       return EdgeType.GVAEdge;
     } else if (pEdge instanceof CAssumeEdge) {
       return EdgeType.NAEdge;
     } else {
       return EdgeType.NEdge;
+    }
+  }
+
+  public boolean isThreadCreationEdge(final CFAEdge pEdge) {
+    switch (pEdge.getEdgeType()) {
+      case StatementEdge:
+        {
+          AStatement statement = ((AStatementEdge) pEdge).getStatement();
+          if (statement instanceof AFunctionCall) {
+            AExpression functionNameExp =
+                ((AFunctionCall) statement).getFunctionCallExpression().getFunctionNameExpression();
+            if (functionNameExp instanceof AIdExpression) {
+              return ((AIdExpression) functionNameExp).getName().contains("pthread_create");
+            }
+          }
+          return false;
+        }
+      default:
+        return false;
     }
   }
 

@@ -180,8 +180,8 @@ public class IPPOR2PrecisionAdjustment implements PrecisionAdjustment {
     //        PrecisionAdjustmentResult.create(
     //            pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
   }
-
-
+  
+  
   public Optional<PrecisionAdjustmentResult> handleNEdgeSuccessor(
       Set<ARGState> pNSuccessors,
       ARGState pCurState,

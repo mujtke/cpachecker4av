@@ -1,26 +1,11 @@
-/*
- *  CPAchecker is a tool for configurable software verification.
- *  This file is part of CPAchecker.
- *
- *  Copyright (C) 2007-2019  Dirk Beyer
- *  All rights reserved.
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- *
- *  CPAchecker web page:
- *    http://cpachecker.sosy-lab.org
- */
+// This file is part of CPAchecker,
+// a tool for configurable software verification:
+// https://cpachecker.sosy-lab.org
+//
+// SPDX-FileCopyrightText: 2007-2020 Dirk Beyer <https://www.sosy-lab.org>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 package org.sosy_lab.cpachecker.util.testcase;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -33,8 +18,6 @@ import com.google.common.collect.Ordering;
 import java.util.List;
 import java.util.Objects;
 import org.sosy_lab.common.collect.PathCopyingPersistentTreeMap;
-import org.sosy_lab.common.collect.PersistentLinkedList;
-import org.sosy_lab.common.collect.PersistentList;
 import org.sosy_lab.common.collect.PersistentSortedMap;
 import org.sosy_lab.cpachecker.cfa.ast.AExpression;
 import org.sosy_lab.cpachecker.cfa.ast.AFunctionDeclaration;
@@ -53,20 +36,17 @@ public class TestVector {
   private final PersistentSortedMap<ComparableVariableDeclaration, InitializerTestValue>
       inputVariableValues;
 
-  private final PersistentList<TestValue> inputValues;
+  private final ImmutableList<TestValue> inputValues;
 
   private TestVector() {
-    this(
-        PathCopyingPersistentTreeMap.of(),
-        PathCopyingPersistentTreeMap.of(),
-        PersistentLinkedList.of());
+    this(PathCopyingPersistentTreeMap.of(), PathCopyingPersistentTreeMap.of(), ImmutableList.of());
   }
 
   private TestVector(
       PersistentSortedMap<ComparableFunctionDeclaration, ImmutableList<ExpressionTestValue>>
           pInputFunctionValues,
       PersistentSortedMap<ComparableVariableDeclaration, InitializerTestValue> pInputVariableValues,
-      PersistentList<TestValue> pInputsInOrder) {
+      ImmutableList<TestValue> pInputsInOrder) {
     inputFunctionValues = pInputFunctionValues;
     inputVariableValues = pInputVariableValues;
     inputValues = pInputsInOrder;
@@ -74,6 +54,13 @@ public class TestVector {
 
   public TestVector addInputValue(AFunctionDeclaration pFunction, AExpression pValue) {
     return addInputValue(pFunction, ExpressionTestValue.of(pValue));
+  }
+
+  private ImmutableList<TestValue> getExtendedValues(final TestValue pValue) {
+    return ImmutableList.<TestValue>builderWithExpectedSize(inputValues.size() + 1)
+        .addAll(inputValues)
+        .add(pValue)
+        .build();
   }
 
   public TestVector addInputValue(AFunctionDeclaration pFunction, ExpressionTestValue pValue) {
@@ -90,7 +77,7 @@ public class TestVector {
     return new TestVector(
         inputFunctionValues.putAndCopy(function, newValues),
         inputVariableValues,
-        inputValues.with(pValue));
+        getExtendedValues(pValue));
   }
 
   public List<TestValue> getTestInputsInOrder() {
@@ -118,7 +105,7 @@ public class TestVector {
     return new TestVector(
         inputFunctionValues,
         inputVariableValues.putAndCopy(variable, pValue),
-        inputValues.with(pValue));
+        getExtendedValues(pValue));
   }
 
   public Iterable<AFunctionDeclaration> getInputFunctions() {

@@ -1,3 +1,13 @@
+<!--
+This file is part of CPAchecker,
+a tool for configurable software verification:
+https://cpachecker.sosy-lab.org
+
+SPDX-FileCopyrightText: 2007-2020 Dirk Beyer <https://www.sosy-lab.org>
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 CPAchecker Installation
 =======================
 
@@ -6,10 +16,11 @@ For information on how to run CPAchecker, see [`README.md`](README.md).
 Install CPAchecker -- Binary
 ----------------------------
 
-1. Install a Java Runtime Environment which is at least Java 11 compatible
-   (e.g., Oracle JRE, OpenJDK).
-   Cf. http://java.oracle.com/ or install a package from your distribution.
-   (Ubuntu: `sudo apt-get install openjdk-11-jre`)
+1. Install a Java Runtime Environment which is at least Java 11 compatible.
+   One Linux we recommend to install a package from your distribution
+   (Ubuntu: `sudo apt install openjdk-11-jre`),
+   on other platforms you can for example get one from
+   [AdoptOpenJDK](https://adoptopenjdk.net/releases.html?variant=openjdk11&jvmVariant=hotspot).
    If you have multiple JVMs installed, consider making this the default JVM,
    otherwise you will need to specify the JVM when running CPAchecker.
    (Ubuntu: `sudo update-alternatives --config java`)

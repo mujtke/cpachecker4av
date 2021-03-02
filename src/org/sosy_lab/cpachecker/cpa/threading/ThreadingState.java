@@ -1,26 +1,11 @@
-/*
- *  CPAchecker is a tool for configurable software verification.
- *  This file is part of CPAchecker.
- *
- *  Copyright (C) 2007-2015  Dirk Beyer
- *  All rights reserved.
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- *
- *  CPAchecker web page:
- *    http://cpachecker.sosy-lab.org
- */
+// This file is part of CPAchecker,
+// a tool for configurable software verification:
+// https://cpachecker.sosy-lab.org
+//
+// SPDX-FileCopyrightText: 2007-2020 Dirk Beyer <https://www.sosy-lab.org>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 package org.sosy_lab.cpachecker.cpa.threading;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -47,6 +32,7 @@ import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdgeType;
 import org.sosy_lab.cpachecker.cfa.model.CFANode;
+import org.sosy_lab.cpachecker.cfa.model.FunctionCallEdge;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractQueryableState;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractStateWithLocations;
@@ -82,6 +68,18 @@ public class ThreadingState implements AbstractState, AbstractStateWithLocations
   @Nullable private final String activeThread;
 
   /**
+   * This functioncall was called when creating this thread. This value should only be set in {@link
+   * ThreadingTransferRelation#getAbstractSuccessorsForEdge} when creating a new thread, i.e., only
+   * for the first state in the new thread, which is directly after the function call.
+   *
+   * <p>It must be deleted in {@link ThreadingTransferRelation#strengthen}, e.g. set to {@code
+   * null}. It is not considered to be part of any 'full' abstract state, but serves as intermediate
+   * flag to have information for the strengthening process.
+   */
+  @Nullable
+  private final FunctionCallEdge entryFunction;
+
+  /**
    * This map contains the mapping of threadIds to the unique identifier used for witness
    * validation. Without a witness, it should always be empty.
    */
@@ -91,6 +89,7 @@ public class ThreadingState implements AbstractState, AbstractStateWithLocations
     this.threads = PathCopyingPersistentTreeMap.of();
     this.locks = PathCopyingPersistentTreeMap.of();
     this.activeThread = null;
+    this.entryFunction = null;
     this.threadIdsForWitness = PathCopyingPersistentTreeMap.of();
   }
 
@@ -98,24 +97,26 @@ public class ThreadingState implements AbstractState, AbstractStateWithLocations
       PersistentMap<String, ThreadState> pThreads,
       PersistentMap<String, String> pLocks,
       String pActiveThread,
+      FunctionCallEdge entryFunction,
       PersistentMap<String, Integer> pThreadIdsForWitness) {
     this.threads = pThreads;
     this.locks = pLocks;
     this.activeThread = pActiveThread;
+    this.entryFunction = entryFunction;
     this.threadIdsForWitness = pThreadIdsForWitness;
   }
 
   private ThreadingState withThreads(PersistentMap<String, ThreadState> pThreads) {
-    return new ThreadingState(pThreads, locks, activeThread, threadIdsForWitness);
+    return new ThreadingState(pThreads, locks, activeThread, entryFunction, threadIdsForWitness);
   }
 
   private ThreadingState withLocks(PersistentMap<String, String> pLocks) {
-    return new ThreadingState(threads, pLocks, activeThread, threadIdsForWitness);
+    return new ThreadingState(threads, pLocks, activeThread, entryFunction, threadIdsForWitness);
   }
 
   private ThreadingState withThreadIdsForWitness(
       PersistentMap<String, Integer> pThreadIdsForWitness) {
-    return new ThreadingState(threads, locks, activeThread, pThreadIdsForWitness);
+    return new ThreadingState(threads, locks, activeThread, entryFunction, pThreadIdsForWitness);
   }
 
   public ThreadingState addThreadAndCopy(String id, int num, AbstractState stack, AbstractState loc) {
@@ -268,7 +269,7 @@ public class ThreadingState implements AbstractState, AbstractStateWithLocations
 
   @Override
   public boolean shouldBeHighlighted() {
-    return true;
+    return false;
   }
 
   @Override
@@ -407,13 +408,24 @@ public class ThreadingState implements AbstractState, AbstractStateWithLocations
     }
   }
 
-  /** @see #activeThread */
-  public ThreadingState setActiveThread(String pActiveThread) {
-    return new ThreadingState(threads, locks, pActiveThread, threadIdsForWitness);
+  /** See {@link #activeThread}. */
+  public ThreadingState withActiveThread(@Nullable String pActiveThread) {
+    return new ThreadingState(threads, locks, pActiveThread, entryFunction, threadIdsForWitness);
   }
 
   String getActiveThread() {
     return activeThread;
+  }
+
+  /** See {@link #entryFunction}. */
+  public ThreadingState withEntryFunction(@Nullable FunctionCallEdge pEntryFunction) {
+    return new ThreadingState(threads, locks, activeThread, pEntryFunction, threadIdsForWitness);
+  }
+
+  /** See {@link #entryFunction}. */
+  @Nullable
+  public FunctionCallEdge getEntryFunction() {
+    return entryFunction;
   }
 
   @Nullable

@@ -1,24 +1,16 @@
-/*
- *  CPAchecker is a tool for configurable software verification.
- *  This file is part of CPAchecker.
- *
- *  Copyright (C) 2007-2019  Dirk Beyer
- *  All rights reserved.
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- */
+// This file is part of CPAchecker,
+// a tool for configurable software verification:
+// https://cpachecker.sosy-lab.org
+//
+// SPDX-FileCopyrightText: 2007-2020 Dirk Beyer <https://www.sosy-lab.org>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 package org.sosy_lab.cpachecker.util;
 
+import static com.google.common.collect.FluentIterable.from;
+
+import com.google.common.collect.ImmutableSet;
 import java.math.BigInteger;
 import java.util.Set;
 import org.sosy_lab.common.log.LogManager;
@@ -85,7 +77,26 @@ public class OverflowAssumptionManager {
     return assumption;
   }
 
-  public CExpression getResultOfAdditiveOperation(
+  public CExpression getConjunctionOfMultiplicationAssumptions(
+      CExpression operand1, CExpression operand2, CSimpleType type, boolean negate)
+      throws UnrecognizedCodeException {
+    Set<CExpression> assumptions =
+        addMultiplicationAssumptions(operand1, operand2, getLowerBound(type), getUpperBound(type));
+    CExpression result = from(assumptions).get(0);
+    for (CExpression assumption : from(assumptions).skip(1)) {
+      result =
+          cBinaryExpressionBuilder.buildBinaryExpression(
+              assumption, result, BinaryOperator.BINARY_AND);
+    }
+    if (negate) {
+      result =
+          cBinaryExpressionBuilder.buildBinaryExpression(
+              result, CIntegerLiteralExpression.ZERO, BinaryOperator.EQUALS);
+    }
+    return result;
+  }
+
+  public CExpression getResultOfOperation(
       CExpression operand1, CExpression operand2, BinaryOperator operator)
       throws UnrecognizedCodeException {
     return cBinaryExpressionBuilder.buildBinaryExpression(operand1, operand2, operator);
@@ -180,16 +191,15 @@ public class OverflowAssumptionManager {
    *     of the expression
    * @param pUpperLimit the {@link CLiteralExpression} representing the overflow bound for the type
    *     of the expression
-   * @param result the set to which the generated assumptions are added
    */
-  public void addMultiplicationAssumptions(
+  public Set<CExpression> addMultiplicationAssumptions(
       CExpression operand1,
       CExpression operand2,
       CLiteralExpression pLowerLimit,
-      CLiteralExpression pUpperLimit,
-      Set<CExpression> result)
+      CLiteralExpression pUpperLimit)
       throws UnrecognizedCodeException {
 
+    ImmutableSet.Builder<CExpression> result = ImmutableSet.builder();
     for (boolean operand1isFirstOperand : new boolean[] {false, true}) {
       CExpression firstOperand = operand1isFirstOperand ? operand1 : operand2;
       CExpression secondOperand = operand1isFirstOperand ? operand2 : operand1;
@@ -232,6 +242,8 @@ public class OverflowAssumptionManager {
         result.add(assumption);
       }
     }
+
+    return result.build();
   }
 
   /**
@@ -271,6 +283,8 @@ public class OverflowAssumptionManager {
   }
 
   /**
+   * Create the assumptions for checking overflows on left shift.
+   *
    * @param operand1 first operand in the C Expression for which the assumption should be generated
    * @param operand2 second operand in the C Expression for which the assumption should be generated
    * @param limit the largest value in the expression's type

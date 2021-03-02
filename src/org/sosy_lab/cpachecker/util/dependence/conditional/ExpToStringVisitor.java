@@ -92,6 +92,7 @@ public class ExpToStringVisitor extends DefaultCExpressionVisitor<String, NoExce
     return pE.getName();
   }
 
+  @SuppressWarnings("deprecation")
   @Override
   public String visit(CCharLiteralExpression pE) throws NoException {
     return pE.getValue() + "";

@@ -1,3 +1,13 @@
+<!--
+This file is part of CPAchecker,
+a tool for configurable software verification:
+https://cpachecker.sosy-lab.org
+
+SPDX-FileCopyrightText: 2007-2020 Dirk Beyer <https://www.sosy-lab.org>
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 CPAchecker Developing Instructions
 ==================================
 
@@ -90,10 +100,34 @@ Develop CPAchecker from within Eclipse
    run `ant install-contrib` once in the CPAchecker directory.
 
 
+License and Copyright
+---------------------
+
+All files in the CPAchecker repository need to have a header with a declaration
+of copyright and license in the [REUSE format](https://reuse.software).
+
+After installing the [reuse tool](https://github.com/fsfe/reuse-tool),
+use the following command to add our standard header:
+
+    reuse addheader --template=header.jinja2 --license Apache-2.0 --copyright 'Dirk Beyer <https://www.sosy-lab.org>' <FILES>
+
+Of course, you can adjust license and copyright if necessary
+(e.g., when integrating third-party code).
+However, for all original contributions please consider transferring the copyright to us
+and use our standard license in order to make license handling easier for us
+and all users of CPAchecker.
+In accordance with the Apache license, all contributions to CPAchecker
+are by default under the Apache license as well unless explicitly marked otherwise.
+
+
 Code-Quality Checks and Continuous Integration
 ----------------------------------------------
 
-We use javac, Google Error-Prone, the Eclipse Java Compiler, and SpotBugs
+We use javac, the Eclipse Java Compiler,
+[Google Error Prone](https://errorprone.info/),
+[SpotBugs](https://spotbugs.github.io/),
+[Checkstyle](https://checkstyle.org/), and
+[Policeman's Forbidden API Checker](https://github.com/policeman-tools/forbidden-apis)
 for findings bugs in the source, and we keep CPAchecker
 free of warnings from all these tools.
 You can run them all at once (plus the unit tests) with `ant all-checks`.
@@ -123,10 +157,10 @@ Releasing a New Version
 -----------------------
 
 1. Preparations:
-   Update [`NEWS.txt`](../NEWS.txt) with notes for all important changes since the last
+   Update [`NEWS.md`](../NEWS.md) with notes for all important changes since the last
    CPAchecker release (i.e., new analyses and features, important changes to
    configuration etc.),
-   and ensure that [`Copyright.txt`](../Copyright.txt) and [`Authors.txt`](../Authors.txt) are up-to-date.
+   and ensure that [`Authors.md`](../Authors.md) are up-to-date.
 
 2. Define a new version by setting `version.base` in [`build.xml`](../build.xml) to the new value.
    The version tag is constructed as outlined below in Sect. "Release Tagging".

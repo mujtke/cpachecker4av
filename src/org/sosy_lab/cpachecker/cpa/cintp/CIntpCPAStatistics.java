@@ -64,13 +64,13 @@ public class CIntpCPAStatistics implements Statistics {
     float failPathGenRatio =
         (totalPathGenNum > 0) ? (failICIntpPathGenNum / (float) totalPathGenNum) * 100.0f : 0;
     pOut.println(
-        "Times of successfully generating the path formula for IC-Intp: "
+        "Times of successfully generating the path formula for C-Intp: "
             + sucICIntpPathGenNum
             + " ("
             + sucPathGenRatio
             + "%)");
     pOut.println(
-        "Times of failed generating the path formula for IC-Intp: "
+        "Times of failed generating the path formula for C-Intp: "
             + failICIntpPathGenNum
             + " ("
             + failPathGenRatio
