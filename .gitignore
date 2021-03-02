@@ -21,6 +21,8 @@ a.out
 /.pydevproject
 /.reuse/
 /.settings/
+/.idea/
+/cpachecker-tag-cpachecker-2.0-base.iml
 
 # /
 /bin
@@ -85,11 +87,5 @@ a.out
 .idea/findbugs-idea.xml
 .idea/junitgenerator-prj-settings.xml
 .idea/vcs.xml
-	modified:   .gitignore
-	modified:   .project
-	deleted:    Authors.txt
-	deleted:    Copyright.txt
-	deleted:    License_Apache-2.0.txt
-	deleted:    NEWS.txt
-	deleted:    benchmark.xml
 
+nothing added to commit but untracked files present (use "git add" to track)
