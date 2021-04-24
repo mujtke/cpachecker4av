@@ -652,6 +652,19 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
             waitlist.add(edgeSucNode);
           }
         }
+
+        // special process to summary edge.
+        CFAEdge leavingSumEdge = node.getLeavingSummaryEdge();
+        if (leavingSumEdge != null) {
+          // NOTICE: the leaving summary edge must be independent with any other edges.
+          // hence, we only add its' successor node to the waitlist.
+          CFANode leavingSumEdgeSuc = leavingSumEdge.getSuccessor();
+          if (!pVisitedNodes.contains(leavingSumEdgeSuc)
+              && !(leavingSumEdgeSuc instanceof FunctionExitNode)) {
+            waitlist.add(leavingSumEdgeSuc);
+          }
+        }
+
       }
 
       // for empty self block function (i.e., this self block do not access global variables), we
