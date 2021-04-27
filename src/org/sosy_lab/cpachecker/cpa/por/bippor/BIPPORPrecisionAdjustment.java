@@ -43,7 +43,6 @@ import org.sosy_lab.cpachecker.cpa.por.EdgeType;
 import org.sosy_lab.cpachecker.cpa.por.ppor.PeepholeState;
 import org.sosy_lab.cpachecker.exceptions.CPAException;
 import org.sosy_lab.cpachecker.util.AbstractStates;
-import org.sosy_lab.cpachecker.util.Triple;
 import org.sosy_lab.cpachecker.util.dependence.DGNode;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
 
@@ -51,8 +50,6 @@ public class BIPPORPrecisionAdjustment implements PrecisionAdjustment {
 
   private final ConditionalDepGraph condDepGraph;
   private final Map<Integer, Integer> nExploredChildCache;
-  private final Map<Integer, Triple<Set<ARGState>, Set<ARGState>, Set<ARGState>>>
-      parentTypedChildCache;
 
   private static final Function<ARGState, Set<ARGState>> gvaEdgeFilter =
       (s) ->
@@ -85,7 +82,6 @@ public class BIPPORPrecisionAdjustment implements PrecisionAdjustment {
   public BIPPORPrecisionAdjustment(ConditionalDepGraph pCondDepGraph) {
     condDepGraph = checkNotNull(pCondDepGraph);
     nExploredChildCache = new HashMap<>();
-    parentTypedChildCache = new HashMap<>();
   }
 
   @Override
@@ -111,20 +107,9 @@ public class BIPPORPrecisionAdjustment implements PrecisionAdjustment {
       int argParStateId = argParState.getStateId();
 
       // get all the type of successors of the argParState.
-      Set<ARGState> gvaSuccessors, naSuccessors, nSuccessors;
-      if (parentTypedChildCache.containsKey(argParStateId)) {
-        Triple<Set<ARGState>, Set<ARGState>, Set<ARGState>> typedChildCache =
-            parentTypedChildCache.get(argParStateId);
-        gvaSuccessors = typedChildCache.getFirst();
-        naSuccessors = typedChildCache.getSecond();
-        nSuccessors = typedChildCache.getThird();
-      } else {
-        gvaSuccessors = gvaEdgeFilter.apply(argParState);
-        naSuccessors = naEdgeFilter.apply(argParState);
-        nSuccessors = nEdgeFilter.apply(argParState);
-        parentTypedChildCache.put(
-            argParStateId, Triple.of(gvaSuccessors, naSuccessors, nSuccessors));
-      }
+      Set<ARGState> gvaSuccessors = gvaEdgeFilter.apply(argParState);
+      Set<ARGState> naSuccessors = naEdgeFilter.apply(argParState);
+      Set<ARGState> nSuccessors = nEdgeFilter.apply(argParState);
 
       // get the precursor node of the transfer-in edge of bipporCurState.
       int curStateInEdgePreNode =
@@ -224,7 +209,6 @@ public class BIPPORPrecisionAdjustment implements PrecisionAdjustment {
 
   private void cleanUpCaches() {
     nExploredChildCache.clear();
-    parentTypedChildCache.clear();
   }
 
   public boolean isThreadCreationEdge(final CFAEdge pEdge) {
