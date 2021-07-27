@@ -42,6 +42,7 @@ import org.sosy_lab.cpachecker.core.algorithm.RestrictedProgramDomainAlgorithm;
 import org.sosy_lab.cpachecker.core.algorithm.SelectionAlgorithm;
 import org.sosy_lab.cpachecker.core.algorithm.TestCaseGeneratorAlgorithm;
 import org.sosy_lab.cpachecker.core.algorithm.UndefinedFunctionCollectorAlgorithm;
+import org.sosy_lab.cpachecker.core.algorithm.bbpr.BBPRAlgorithm;
 import org.sosy_lab.cpachecker.core.algorithm.bmc.BMCAlgorithm;
 import org.sosy_lab.cpachecker.core.algorithm.bmc.IMCAlgorithm;
 import org.sosy_lab.cpachecker.core.algorithm.bmc.pdr.PdrAlgorithm;
@@ -153,6 +154,12 @@ public class CoreComponentsFactory {
   @Option(secure=true, name="algorithm.impact",
       description="Use McMillan's Impact algorithm for lazy interpolation")
   private boolean useImpactAlgorithm = false;
+
+  @Option(
+    secure = true,
+    name = "algorithm.bbpr",
+    description = "use BBPR algorithm for BDD-analysis based Block inference ppor & Path reduction")
+  private boolean useBBPRAlgorithm = false;
 
   @Option(
     secure = true,
@@ -435,6 +442,9 @@ public class CoreComponentsFactory {
     } else if (useImpactAlgorithm) {
       algorithm = new ImpactAlgorithm(config, logger, shutdownNotifier, cpa, cfa);
 
+    } else if (useBBPRAlgorithm) {
+      logger.log(Level.INFO, "Using BBPR Algorithm");
+      algorithm = new BBPRAlgorithm(config, logger, shutdownNotifier, cpa);
     } else if (runCBMCasExternalTool) {
       if (cfa.getFileNames().size() > 1) {
         throw new InvalidConfigurationException(
