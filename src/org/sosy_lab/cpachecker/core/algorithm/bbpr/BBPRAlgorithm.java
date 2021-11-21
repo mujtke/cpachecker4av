@@ -33,6 +33,7 @@ import org.sosy_lab.cpachecker.core.interfaces.TransferRelation;
 import org.sosy_lab.cpachecker.core.reachedset.ReachedSet;
 import org.sosy_lab.cpachecker.cpa.arg.ARGCPA;
 import org.sosy_lab.cpachecker.cpa.arg.ARGMergeJoinCPAEnabledAnalysis;
+import org.sosy_lab.cpachecker.cpa.arg.ARGState;
 import org.sosy_lab.cpachecker.cpa.bdd.BDDCPA;
 import org.sosy_lab.cpachecker.exceptions.CPAEnabledAnalysisPropertyViolationException;
 import org.sosy_lab.cpachecker.exceptions.CPAException;
@@ -130,6 +131,8 @@ public class BBPRAlgorithm implements Algorithm {
       final ReachedSet reachedSet)
       throws InterruptedException, CPAException {
     logger.log(Level.ALL, "Current state is", state, "with precision", precision);
+
+    System.out.println(((ARGState) state).getStateId());
 
     // generate all the successors of current state.
     Collection<? extends AbstractState> successors =

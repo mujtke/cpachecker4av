@@ -8,7 +8,6 @@
 
 package org.sosy_lab.cpachecker.cpa.keph;
 
-import org.sosy_lab.common.ShutdownNotifier;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
 import org.sosy_lab.cpachecker.cfa.model.CFANode;
@@ -22,7 +21,6 @@ import org.sosy_lab.cpachecker.core.interfaces.StateSpacePartition;
 public class KEPHCPA extends AbstractCPA {
 
   private final LogManager logger;
-  private final ShutdownNotifier shutdownNotifier;
   private final CFA cfa;
 
   @Override
@@ -36,11 +34,10 @@ public class KEPHCPA extends AbstractCPA {
     return AutomaticCPAFactory.forType(KEPHCPA.class);
   }
 
-  public KEPHCPA(LogManager pLogger, ShutdownNotifier pShutdownNotifier, CFA pCfa) {
+  public KEPHCPA(LogManager pLogger, CFA pCfa) {
     super("sep", "sep", new KEPHTransferRelation());
 
     logger = pLogger;
-    shutdownNotifier = pShutdownNotifier;
     cfa = pCfa;
   }
 

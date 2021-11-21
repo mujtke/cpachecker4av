@@ -52,6 +52,12 @@ public class BIPPORCPA extends AbstractCPA
               + " without following function calls (in this case FunctionSummaryEdges are used)")
   private boolean followFunctionCalls = true;
 
+  @Option(
+    secure = true,
+    description = "With this option enabled, the optimization strategy for reducing the "
+        + "redundant exploration of re-sorted read events is used.")
+  private boolean useOptDisableStates = true;
+
   public static CPAFactory factory() {
     return AutomaticCPAFactory.forType(BIPPORCPA.class);
   }
@@ -74,8 +80,14 @@ public class BIPPORCPA extends AbstractCPA
 
   @Override
   public PrecisionAdjustment getPrecisionAdjustment() {
+    BIPPORTransferRelation bipporTransferRelation =
+        (BIPPORTransferRelation) this.getTransferRelation();
+
     return new BIPPORPrecisionAdjustment(
-        ((BIPPORTransferRelation) this.getTransferRelation()).getCondDepGraph());
+        bipporTransferRelation.getCondDepGraph(),
+        useOptDisableStates,
+        bipporTransferRelation.isUseOptKEPHRemove(),
+        bipporTransferRelation.getExpdKEPCache());
   }
 
   @Override

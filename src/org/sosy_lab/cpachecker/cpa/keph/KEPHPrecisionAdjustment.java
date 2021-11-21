@@ -95,6 +95,7 @@ public class KEPHPrecisionAdjustment implements PrecisionAdjustment {
 
     // current action is not a key event, we only inherit the key event path hash from the old one.
     if (!keyEventCache.contains(kephState.getNextEdgeHash())) {
+      kephState.setNeedRemove(false);
       return Optional.of(
           PrecisionAdjustmentResult
               .create(pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
@@ -106,16 +107,17 @@ public class KEPHPrecisionAdjustment implements PrecisionAdjustment {
 
       if (expdKEPCache.contains(newKeyEventPathHash)) {
         // System.out.println("keph: " + newKeyEventPathHash);
-        return Optional.empty();
+        kephState.setNeedRemove(true);
       } else {
         expdKEPCache.add(newKeyEventPathHash);
         // System.out.println("keph: " + newKeyEventPathHash);
 
+        kephState.setNeedRemove(false);
         kephState.setKeyEventPathHash(newKeyEventPathHash);
-        return Optional.of(
-            PrecisionAdjustmentResult
-                .create(pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
       }
+      return Optional.of(
+          PrecisionAdjustmentResult
+              .create(pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
     }
   }
 

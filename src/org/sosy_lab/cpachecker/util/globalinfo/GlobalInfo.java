@@ -10,6 +10,9 @@ package org.sosy_lab.cpachecker.util.globalinfo;
 
 import com.google.common.base.Preconditions;
 import java.util.Optional;
+import java.util.logging.Level;
+import org.sosy_lab.common.configuration.Configuration;
+import org.sosy_lab.common.configuration.InvalidConfigurationException;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
 import org.sosy_lab.cpachecker.core.interfaces.ConfigurableProgramAnalysis;
@@ -27,6 +30,7 @@ public class GlobalInfo {
   private static GlobalInfo instance;
   private CFAInfo cfaInfo;
   private AutomatonInfo automatonInfo = new AutomatonInfo();
+  private EdgeInfo edgeInfo;
   private ConfigurableProgramAnalysis cpa;
   private FormulaManagerView predicateFormulaManagerView;
   private FormulaManagerView assumptionFormulaManagerView;
@@ -52,6 +56,18 @@ public class GlobalInfo {
 
   public synchronized Optional<CFAInfo> getCFAInfo() {
     return Optional.ofNullable(cfaInfo);
+  }
+
+  public synchronized void buildEdgeInfo(final Configuration pConfig) {
+    Preconditions.checkState((cfaInfo != null) && (logger != null) && (pConfig != null));
+
+    try {
+      CFA cfa = cfaInfo.getCFA();
+      edgeInfo = new EdgeInfo(cfa, pConfig, logger);
+    } catch (InvalidConfigurationException e) {
+      logger
+          .log(Level.SEVERE, "Failed to build the Conditional Dependency Graph: " + e.getMessage());
+    }
   }
 
   public void storeLogManager(LogManager pLogger) {
@@ -95,6 +111,11 @@ public class GlobalInfo {
   public synchronized AutomatonInfo getAutomatonInfo() {
     Preconditions.checkState(automatonInfo != null);
     return automatonInfo;
+  }
+
+  public synchronized EdgeInfo getEdgeInfo() {
+    Preconditions.checkState(edgeInfo != null);
+    return edgeInfo;
   }
 
   public synchronized FormulaManagerView getPredicateFormulaManagerView() {

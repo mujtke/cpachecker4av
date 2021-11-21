@@ -15,21 +15,28 @@ public class KEPHState implements AbstractState, Serializable {
 
   private Integer keyEventPathHash;
   private Integer nextEdgeHash, nextEdgeCodeHash;
+  private boolean needRemove;
 
   public static KEPHState getInstance() {
-    return new KEPHState(0, 0, 0);
+    return new KEPHState(0, 0, 0, false);
   }
 
-  public KEPHState(Integer pKeyEventPathHash, Integer pNextEdgeHash, Integer pNextEdgeCodeHash) {
+  public KEPHState(
+      Integer pKeyEventPathHash,
+      Integer pNextEdgeHash,
+      Integer pNextEdgeCodeHash,
+      boolean pNeedRemove) {
     this.keyEventPathHash = pKeyEventPathHash;
     this.nextEdgeHash = pNextEdgeHash;
     this.nextEdgeCodeHash = pNextEdgeCodeHash;
+    this.needRemove = pNeedRemove;
   }
 
   public KEPHState(KEPHState pState) {
     this.keyEventPathHash = pState.keyEventPathHash;
     this.nextEdgeHash = pState.nextEdgeHash;
     this.nextEdgeCodeHash = pState.nextEdgeCodeHash;
+    this.needRemove = pState.needRemove;
   }
 
   @Override
@@ -54,7 +61,8 @@ public class KEPHState implements AbstractState, Serializable {
     KEPHState pOther = (KEPHState) pObj;
     return (this.keyEventPathHash == pOther.keyEventPathHash)
         && (this.nextEdgeHash == pOther.nextEdgeHash)
-        && (this.nextEdgeCodeHash == pOther.nextEdgeCodeHash);
+        && (this.nextEdgeCodeHash == pOther.nextEdgeCodeHash)
+        && (this.needRemove == pOther.needRemove);
   }
 
   @Override
@@ -64,7 +72,9 @@ public class KEPHState implements AbstractState, Serializable {
         + ", "
         + this.nextEdgeHash
         + ", "
-        + this.nextEdgeCodeHash;
+        + this.nextEdgeCodeHash
+        + ", "
+        + this.needRemove;
   }
 
   public Integer getKeyEventPathHash() {
@@ -81,6 +91,14 @@ public class KEPHState implements AbstractState, Serializable {
 
   public Integer getNextEdgeCodeHash() {
     return nextEdgeCodeHash;
+  }
+
+  public boolean isNeedRemove() {
+    return needRemove;
+  }
+
+  public void setNeedRemove(boolean pNeedRemove) {
+    needRemove = pNeedRemove;
   }
 
 }

@@ -23,8 +23,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.FluentIterable.from;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import org.sosy_lab.cpachecker.cfa.ast.AExpression;
@@ -43,13 +48,21 @@ import org.sosy_lab.cpachecker.cpa.por.EdgeType;
 import org.sosy_lab.cpachecker.cpa.por.ppor.PeepholeState;
 import org.sosy_lab.cpachecker.exceptions.CPAException;
 import org.sosy_lab.cpachecker.util.AbstractStates;
+import org.sosy_lab.cpachecker.util.Pair;
 import org.sosy_lab.cpachecker.util.dependence.DGNode;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
+import org.sosy_lab.cpachecker.util.dependence.conditional.EdgeVtx;
 
 public class BIPPORPrecisionAdjustment implements PrecisionAdjustment {
 
   private final ConditionalDepGraph condDepGraph;
+  private final boolean useOptDisableStates;
   private final Map<Integer, Integer> nExploredChildCache;
+
+  // For Optimization: KEPHRemove
+  private final boolean useOptKEPHRemove;
+  // explored key event paths. (shared with BIPPORTransferRelation)
+  private Set<Integer> expdKEPCache;
 
   private static final Function<ARGState, Set<ARGState>> gvaEdgeFilter =
       (s) ->
@@ -79,8 +92,17 @@ public class BIPPORPrecisionAdjustment implements PrecisionAdjustment {
                           .equals(EdgeType.NAEdge))
               .toSet();
 
-  public BIPPORPrecisionAdjustment(ConditionalDepGraph pCondDepGraph) {
+  public BIPPORPrecisionAdjustment(
+      ConditionalDepGraph pCondDepGraph,
+      boolean pUseOptDisableStates,
+      boolean pUseOptKephRemove,
+      Set<Integer> pExpdKEPCache) {
     condDepGraph = checkNotNull(pCondDepGraph);
+    useOptDisableStates = pUseOptDisableStates;
+
+    useOptKEPHRemove = pUseOptKephRemove;
+    expdKEPCache = checkNotNull(pExpdKEPCache);
+
     nExploredChildCache = new HashMap<>();
   }
 
@@ -106,6 +128,19 @@ public class BIPPORPrecisionAdjustment implements PrecisionAdjustment {
           bipporParState = AbstractStates.extractStateByType(argParState, BIPPORState.class);
       int argParStateId = argParState.getStateId();
 
+      // use the disable set optimization strategy.
+      if (useOptKEPHRemove) {
+        if (bipporCurState.isKEPHRemovable()) {
+          return Optional.empty();
+        }
+      }
+      //
+      if (useOptDisableStates) {
+        if (bipporParState.isDisabled(bipporCurState.getCurrentTransferInEdgeThreadId())) {
+          return Optional.empty();
+        }
+      }
+
       // get all the type of successors of the argParState.
       Set<ARGState> gvaSuccessors = gvaEdgeFilter.apply(argParState);
       Set<ARGState> naSuccessors = naEdgeFilter.apply(argParState);
@@ -120,6 +155,9 @@ public class BIPPORPrecisionAdjustment implements PrecisionAdjustment {
         if (nSuccessors.contains(argCurState) && !nExploredChildCache.containsKey(argParStateId)) {
           // it's the first time we explore the normal successor of argParState.
           nExploredChildCache.put(argParStateId, curStateInEdgePreNode);
+          // update the KEPH state.
+          if (useOptKEPHRemove)
+            expdKEPCache.add(bipporCurState.getKephState().getKeyEventPathHash());
           return Optional.of(
               PrecisionAdjustmentResult.create(
                   pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
@@ -137,6 +175,9 @@ public class BIPPORPrecisionAdjustment implements PrecisionAdjustment {
                 || nExploredChildCache.get(argParStateId).equals(curStateInEdgePreNode))) {
           // explore another assume successor which have the same precursor with the explored one.
           nExploredChildCache.put(argParStateId, curStateInEdgePreNode);
+          // update the KEPH state.
+          if (useOptKEPHRemove)
+            expdKEPCache.add(bipporCurState.getKephState().getKeyEventPathHash());
           return Optional.of(
               PrecisionAdjustmentResult.create(
                   pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
@@ -147,6 +188,13 @@ public class BIPPORPrecisionAdjustment implements PrecisionAdjustment {
         }
       }
       assert naSuccessors.isEmpty();
+
+      //
+      ImmutableSet<ARGState> gvaNotRemovedStates = from(gvaSuccessors).filter(
+          s -> !AbstractStates.extractStateByType(s, BIPPORState.class)
+              .getKephState()
+              .isNeedRemove())
+          .toSet();
 
       // explore this 'global access' successor.
       if (!gvaSuccessors.isEmpty()) {
@@ -176,13 +224,49 @@ public class BIPPORPrecisionAdjustment implements PrecisionAdjustment {
               newTransferEdge)) {
             return Optional.empty();
           } else {
-            // we must explore this successor state.
+            if (useOptDisableStates) {
+              // NOTICE: the thread creation edge is considered as a special write event.
 
-            // we need to update the pre-global-access state of bipporCurState.
-            bipporCurState.setPreGVAState(curPState);
-            return Optional.of(
-                PrecisionAdjustmentResult.create(
-                    pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
+              // firstly, we need to setup the disable-exploration states flag of the states
+              // that are in the same level of current state.
+              // NOTICE: this function will modify all the flags of BIPPORState.
+              if (!bipporCurState.isSetupDisFlag()) {
+                if (!gvaNotRemovedStates.isEmpty()) {
+                  setupGVASuccessorsDisableFlag(gvaNotRemovedStates);
+                }
+              }
+
+              // then, by using the optimization strategy, we can determine whether the current
+              // state is needed to be explored.
+              int curTransferThreadId = bipporCurState.getCurrentTransferInEdgeThreadId();
+              if (bipporParState.isDisabled(curTransferThreadId)
+                  || bipporCurState.isDisabled(curTransferThreadId)) {
+                // this global-access state is redundant.
+                return Optional.empty();
+              } else {
+                // we must explore this successor state.
+
+                // we need to update the pre-global-access state of bipporCurState.
+                bipporCurState.setPreGVAState(curPState);
+                // update the KEPH state.
+                if (useOptKEPHRemove)
+                  expdKEPCache.add(bipporCurState.getKephState().getKeyEventPathHash());
+                return Optional.of(
+                    PrecisionAdjustmentResult
+                        .create(pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
+              }
+            } else {
+              // we must explore this successor state.
+
+              // we need to update the pre-global-access state of bipporCurState.
+              bipporCurState.setPreGVAState(curPState);
+              // update the KEPH state.
+              if (useOptKEPHRemove)
+                expdKEPCache.add(bipporCurState.getKephState().getKeyEventPathHash());
+              return Optional.of(
+                  PrecisionAdjustmentResult
+                      .create(pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
+            }
           }
 
         } else {
@@ -192,6 +276,9 @@ public class BIPPORPrecisionAdjustment implements PrecisionAdjustment {
           // we need to update the pre-global-access state of bipporCurState.
           bipporCurState.setPreGVAState(curPState);
 
+          // update the KEPH state.
+          if (useOptKEPHRemove)
+            expdKEPCache.add(bipporCurState.getKephState().getKeyEventPathHash());
           return Optional.of(
               PrecisionAdjustmentResult.create(
                   pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
@@ -209,6 +296,103 @@ public class BIPPORPrecisionAdjustment implements PrecisionAdjustment {
 
   private void cleanUpCaches() {
     nExploredChildCache.clear();
+  }
+
+  /**
+   * This function updates the disable-exploration flag of each state in the set.
+   *
+   * @implNote If this function is called by some function, it means that it's the first time to
+   *           setup the disable-exploration flag of states that have the same parent state.
+   *
+   * @param pGVASuccessors The successors that have the same parent state.
+   */
+  private void setupGVASuccessorsDisableFlag(Set<ARGState> pGVASuccessors) {
+    Preconditions.checkArgument((pGVASuccessors != null && !pGVASuccessors.isEmpty()), "the given parameter is invalid!");
+
+    // firstly, we need to build the map of thread_id <--> DepNode.
+    Map<Integer, Pair<EdgeVtx, BIPPORState>> stateRWVarsMap = new HashMap<>();
+    for (ARGState state : pGVASuccessors) {
+      BIPPORState bipporState = AbstractStates.extractStateByType(state, BIPPORState.class);
+      EdgeVtx gvaNode = (EdgeVtx) condDepGraph.getDGNode(bipporState.getCurrentTransferInEdge().hashCode());
+
+      if (gvaNode != null) {
+        // this node is not belongs to a thread creation edge.
+        stateRWVarsMap
+            .put(bipporState.getCurrentTransferInEdgeThreadId(), Pair.of(gvaNode, bipporState));
+      } else {
+        bipporState.setupDisFlag();
+      }
+    }
+
+    // secondly, we apply the optimization strategy which sort the state in the order of
+    // the number of thread.
+    // e.g., state -> (thread_id, r_w_event): s1 -> (t1, w1); s2 -> (t2, r1); s3 -> (t2, r1'); s4 ->
+    // (t3, r2)
+    // sort result: s1 -> (t1, w1); s4 -> (t3, r2); s2 -> (t2, r1); s3 -> (t2, r1')
+    // note: thread t2 has two branches, while all the other threads have only one branch.
+
+    // finally, we can setup the disable-exploration set of each successor.
+
+    // check whether the events in stateRWVarsMap are mutual independent.
+    // boolean isMutualIndependent = true;
+    // ImmutableList<EdgeVtx> eventList =
+    // from(stateRWVarsMap.values()).transform(s -> s.getFirst()).toList();
+    // for (int i = 0; i < eventList.size() - 1; ++i) {
+    // if (!isMutualIndependent)
+    // break;
+    //
+    // EdgeVtx n1 = eventList.get(i);
+    //
+    // for (int j = 1; j < eventList.size(); ++j) {
+    // if (condDepGraph.dep(n1, eventList.get(j)) != null) {
+    // isMutualIndependent = false;
+    // break;
+    // }
+    // }
+    // }
+
+    // check whether all the successors are pure read events. if true, we obtain all the successor
+    // id.
+    boolean allSucPureRead = true;
+    for (Pair<EdgeVtx, BIPPORState> vp : stateRWVarsMap.values()) {
+      if (!vp.getFirst().isPureReadVtx()) {
+        allSucPureRead = false;
+      }
+    }
+    Set<Integer> allThreadIds = stateRWVarsMap.keySet();
+
+    // build the disable set for all the states in stateRWVarsMap.
+    Set<Integer> disableSet = new HashSet<>();
+    for (Entry<Integer, Pair<EdgeVtx, BIPPORState>> e : stateRWVarsMap.entrySet()) {
+      BIPPORState bipporState = e.getValue().getSecond();
+      EdgeVtx curDepNode = e.getValue().getFirst();
+
+      // if all the states in stateRWVarsMap are pure read events, their disabled state set
+      // can be easily obtained.
+      if (allSucPureRead) {
+        if (disableSet.isEmpty()) {
+          bipporState.addDisabledStateSet(new HashSet<>());
+        } else {
+          bipporState.addDisabledStateSet(allThreadIds);
+        }
+
+      } else {
+        // otherwise, we need to compute the set of threads that are dependent with curDepNode,
+        // and then remove them in current disableSet.
+        ImmutableSet<Integer> depThreadIds =
+            from(stateRWVarsMap.entrySet())
+                .filter(n -> (condDepGraph.dep(curDepNode, n.getValue().getFirst()) != null))
+                .transform(n -> n.getKey())
+                .toSet();
+        Set<Integer> curStateDisableSet = new HashSet<>(Sets.difference(disableSet, depThreadIds));
+
+        bipporState.addDisabledStateSet(curStateDisableSet);
+      }
+
+      // update the disable set and flag.
+      disableSet.add(e.getKey());
+      bipporState.setupDisFlag();
+    }
   }
 
   public boolean isThreadCreationEdge(final CFAEdge pEdge) {

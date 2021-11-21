@@ -93,6 +93,8 @@ public class CIntpCPA extends AbstractCPA
       }
       logger.log(Level.SEVERE, "no CPAs available!");
     } catch (InvalidConfigurationException e) {
+      this.logger
+          .log(Level.SEVERE, "Failed to get the precision adjustment operator: " + e.getMessage());
       e.printStackTrace();
     }
     return null;

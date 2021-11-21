@@ -89,6 +89,14 @@ public class EdgeVtx implements DGNode {
     return simpleEdgeVtx;
   }
 
+  public boolean isPureWriteVtx() {
+    return gReadVars.isEmpty() && !gWriteVars.isEmpty();
+  }
+
+  public boolean isPureReadVtx() {
+    return !gReadVars.isEmpty() && gWriteVars.isEmpty();
+  }
+
   public void setBlockEdgeNumber(int pBlockEdgeNumber) {
     blockEdgeNumber = pBlockEdgeNumber;
   }

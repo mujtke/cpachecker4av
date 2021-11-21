@@ -122,6 +122,12 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
 
   @Option(
       secure = true,
+    name = "addNodeForGVars",
+    description = "This option add node for global variable initialization edges (it is mainly used for )")
+  private boolean addNodeForGlobalVariableInit = false;
+
+  @Option(
+    secure = true,
       description =
           "File to export dependence graph to. If `null`, dependence"
               + " graph will not be exported as dot.")
@@ -254,7 +260,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     // exploration data structure.
     Queue<CFANode> waitlist = new ArrayQueue<>();
 
-    boolean extractStart = false;
+    boolean extractStart = addNodeForGlobalVariableInit ? true : false;
     // BFS strategy.
     waitlist.add(pFuncEntry);
     while (!waitlist.isEmpty()) {

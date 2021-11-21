@@ -22,12 +22,18 @@ package org.sosy_lab.cpachecker.cpa.por.bippor;
 import static com.google.common.collect.FluentIterable.from;
 
 import com.google.common.collect.ImmutableSet;
+import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayQueue;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import org.sosy_lab.common.configuration.Configuration;
 import org.sosy_lab.common.configuration.InvalidConfigurationException;
+import org.sosy_lab.common.configuration.Option;
+import org.sosy_lab.common.configuration.Options;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
 import org.sosy_lab.cpachecker.cfa.ast.AExpression;
@@ -36,6 +42,8 @@ import org.sosy_lab.cpachecker.cfa.ast.AIdExpression;
 import org.sosy_lab.cpachecker.cfa.ast.AStatement;
 import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
+import org.sosy_lab.cpachecker.cfa.model.CFANode;
+import org.sosy_lab.cpachecker.cfa.model.FunctionEntryNode;
 import org.sosy_lab.cpachecker.cfa.model.c.CAssumeEdge;
 import org.sosy_lab.cpachecker.core.defaults.SingleEdgeTransferRelation;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
@@ -50,17 +58,78 @@ import org.sosy_lab.cpachecker.util.Pair;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraphBuilder;
 
+@Options(prefix = "cpa.por.bippor")
 public class BIPPORTransferRelation extends SingleEdgeTransferRelation {
 
   private final LocationsCPA locationsCPA;
   private final ConditionalDepGraphBuilder builder;
   private final ConditionalDepGraph condDepGraph;
 
-  public BIPPORTransferRelation(Configuration pConfig, LogManager pLogger, CFA pCfa)
+  // For Optimization: KEPHRemove
+  @Option(
+    secure = true,
+    description = "With this option enabled, the optimization strategy for removing repeated "
+        + "key-event path order is used.")
+  private boolean useOptKEPHRemove = true;
+
+  // Key Event: an event is called a key event if it need to access variables.
+  private Set<Integer> keyEventCache = new HashSet<>();
+  // explored key event paths. (shared with BIPPORPrecisionAdjustment)
+  private Set<Integer> expdKEPCache = new HashSet<>();
+
+  public BIPPORTransferRelation(
+      Configuration pConfig,
+      LogManager pLogger,
+      CFA pCfa)
       throws InvalidConfigurationException {
+    pConfig.inject(this);
     locationsCPA = LocationsCPA.create(pConfig, pLogger, pCfa);
+
     builder = new ConditionalDepGraphBuilder(pCfa, pConfig, pLogger);
     condDepGraph = builder.build();
+
+    keyEventCache = useOptKEPHRemove ? extractKeyEvents(pLogger, pCfa) : keyEventCache;
+  }
+
+  private Set<Integer> extractKeyEvents(LogManager pLogger, CFA pCfa) {
+    EdgeEvaluationExtractor extractor = new EdgeEvaluationExtractor(pLogger);
+    Set<Integer> result = new HashSet<>();
+
+    // get entry point of all the functions in the given program.
+    Iterator<FunctionEntryNode> funcIter = pCfa.getAllFunctionHeads().iterator();
+    Set<Integer> finishedEdges = new HashSet<>();
+    // iteratively process each function.
+    while (funcIter.hasNext()) {
+      FunctionEntryNode func = funcIter.next();
+      Queue<CFAEdge> edgeQueue = new ArrayQueue<>();
+
+      // bfs strategy.
+      edgeQueue.add(func.getLeavingEdge(0));
+      while (!edgeQueue.isEmpty()) {
+        CFAEdge edge = edgeQueue.remove();
+        Integer edgeHash = edge.hashCode();
+
+        // this edge is not processed.
+        if (!finishedEdges.contains(edgeHash)) {
+          // get the evaluation information.
+          // if no variable is evaluated, then it's not a key event.
+          if (!extractor.extractEdgeEvaluationInfo(edge).isEmpty()) {
+            result.add(edgeHash);
+          }
+          finishedEdges.add(edgeHash);
+
+          // System.out.println(edge + "\t" + result.get(edgeHash));
+
+          // process its successor edge.
+          CFANode edgeSucNode = edge.getSuccessor();
+          for (int i = 0; i < edgeSucNode.getNumLeavingEdges(); ++i) {
+            edgeQueue.add(edgeSucNode.getLeavingEdge(i));
+          }
+        }
+      }
+    }
+
+    return result;
   }
 
   @Override
@@ -91,6 +160,12 @@ public class BIPPORTransferRelation extends SingleEdgeTransferRelation {
       int newThreadCounter = newThreadIdInfo.getFirst();
       Map<String, Integer> newThreadIdNumbers = newThreadIdInfo.getSecond();
 
+      // update the KEPH state.
+      KEPHState newKephState =
+          useOptKEPHRemove
+              ? updateKephState(curState.getKephState(), pCfaEdge)
+              : KEPHState.getInstance();
+
       // note: here, we only generate the successor of pCfaEdge, the real BIPPOR routine is in the
       // precision adjust part.
 
@@ -98,8 +173,37 @@ public class BIPPORTransferRelation extends SingleEdgeTransferRelation {
           new BIPPORState(
               curState.getPreGVAState(),
               new PeepholeState(newThreadCounter, pCfaEdge, newLocs, newThreadIdNumbers),
-              determineEdgeType(pCfaEdge)));
+              newKephState,
+              determineEdgeType(pCfaEdge),
+              new HashSet<>(),
+              false));
     }
+  }
+
+  private KEPHState updateKephState(final KEPHState pOldKephState, final CFAEdge pEdge) {
+    KEPHState newKephState = new KEPHState(pOldKephState);
+    int oldKeyEventPathHash = newKephState.getKeyEventPathHash();
+
+    // current action is not a key event, we only inherit the key event path hash from the old one.
+    if (!keyEventCache.contains(pEdge.hashCode())) {
+      newKephState.setNeedRemove(false);
+    } else {
+      int newKeyEventPathHash =
+          (String.valueOf(oldKeyEventPathHash).toString()
+              + pEdge.hashCode()
+              + ""
+              + pEdge.toString().hashCode()).hashCode();
+
+      if (expdKEPCache.contains(newKeyEventPathHash)) {
+        // old key-event path, it should be removed.
+        newKephState.setNeedRemove(true);
+      } else {
+        // new key-event path, we don't put it into the cache until we really explored this path.
+        newKephState.setNeedRemove(false);
+        newKephState.setKeyEventPathHash(newKeyEventPathHash);
+      }
+    }
+    return newKephState;
   }
 
   private Pair<Integer, Map<String, Integer>> updateThreadIdNumber(
@@ -163,4 +267,13 @@ public class BIPPORTransferRelation extends SingleEdgeTransferRelation {
   public ConditionalDepGraph getCondDepGraph() {
     return condDepGraph;
   }
+
+  public boolean isUseOptKEPHRemove() {
+    return useOptKEPHRemove;
+  }
+
+  public Set<Integer> getExpdKEPCache() {
+    return expdKEPCache;
+  }
+
 }

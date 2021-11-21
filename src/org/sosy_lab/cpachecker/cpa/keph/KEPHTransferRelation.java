@@ -18,17 +18,18 @@ import org.sosy_lab.cpachecker.exceptions.CPATransferException;
 
 public class KEPHTransferRelation extends SingleEdgeTransferRelation {
 
+
   @Override
   public Collection<? extends AbstractState>
       getAbstractSuccessorsForEdge(AbstractState pState, Precision pPrecision, CFAEdge pCfaEdge)
           throws CPATransferException, InterruptedException {
     KEPHState kephState = (KEPHState) pState;
-    return Set
-        .of(
-            new KEPHState(
-                kephState.getKeyEventPathHash(),
-                pCfaEdge.hashCode(),
-                pCfaEdge.toString().hashCode()));
+    return Set.of(
+        new KEPHState(
+            kephState.getKeyEventPathHash(),
+            pCfaEdge.hashCode(),
+            pCfaEdge.toString().hashCode(),
+            false));
   }
 
 }

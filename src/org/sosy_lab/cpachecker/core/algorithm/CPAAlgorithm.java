@@ -313,10 +313,27 @@ public class CPAAlgorithm implements Algorithm, StatisticsProvider {
       }
     }
 
-    if (((ARGState) state).getStateId() == 32) {
+    if (((ARGState) state).getStateId() == 17) {
       int k = 0;
       ++k;
+      System.out.println(((ARGState) state).getStateId());
     }
+    if (((ARGState) state).getStateId() == 63) {
+      int k = 0;
+      ++k;
+      System.out.println(((ARGState) state).getStateId());
+    }
+    if (((ARGState) state).getStateId() == 74) {
+      int k = 0;
+      ++k;
+      System.out.println(((ARGState) state).getStateId());
+    }
+    if (((ARGState) state).getStateId() == 80) {
+      int k = 0;
+      ++k;
+      System.out.println(((ARGState) state).getStateId());
+    }
+    // System.out.println(((ARGState) state).getStateId());
 
     stats.transferTimer.start();
     Collection<? extends AbstractState> successors;
