@@ -42,24 +42,32 @@ public class CondDepConstraints {
   // b[i] = 1; b[j] = 2; 'b' is a global array, and we need provide a constraint 'i = j' to confine
   // this dependence relation.)
   private boolean unCondDep;
+  // whether the two nodes have conflict variables.
+  private boolean haveConfVars;
 
   public static final CondDepConstraints unCondDepConstraint = new CondDepConstraints();
 
   public CondDepConstraints() {
     constraints = Set.of();
     unCondDep = true;
+    haveConfVars = true;
   }
 
-  public CondDepConstraints(final Set<Pair<CExpression, String>> pConstraints, boolean pUnCondDep) {
+  public CondDepConstraints(
+      final Set<Pair<CExpression, String>> pConstraints,
+      boolean pUnCondDep,
+      boolean pHaveConfVars) {
     assert pConstraints != null;
     constraints = pConstraints;
     unCondDep = pUnCondDep;
+    haveConfVars = pHaveConfVars;
   }
 
   public CondDepConstraints(final CondDepConstraints pOther) {
     assert pOther != null;
     constraints = Set.copyOf(pOther.constraints);
     unCondDep = pOther.unCondDep;
+    haveConfVars = pOther.haveConfVars;
   }
 
   public void addConstraint(Pair<CExpression, String> pExp) {
@@ -97,10 +105,12 @@ public class CondDepConstraints {
   public static CondDepConstraints mergeConstraints(CondDepConstraints... pConsts) {
     Set<Pair<CExpression, String>> tmpConstraints = Set.of();
 
+    boolean confVars = false;
     int noConstraintNumber = 0;
     for (CondDepConstraints consts : pConsts) {
       if (consts != null) {
         tmpConstraints = Sets.union(tmpConstraints, consts.constraints);
+        confVars = confVars ? true : consts.haveConfVars;
       } else {
         ++noConstraintNumber;
       }
@@ -109,7 +119,11 @@ public class CondDepConstraints {
     if (noConstraintNumber == pConsts.length) {
       return null;
     }
-    return new CondDepConstraints(tmpConstraints, tmpConstraints.isEmpty());
+    return new CondDepConstraints(tmpConstraints, tmpConstraints.isEmpty(), confVars);
+  }
+
+  public boolean isHaveConfVars() {
+    return haveConfVars;
   }
 
   @Override

@@ -69,7 +69,9 @@ public class Var {
       // note: we do not compare the expression of these two variables, it is important for the
       // comparison two 'complex' variables (e.g., pointer, array, struct).
       //      return name == other.name && isGlobal == other.isGlobal;
-      return name == other.name && exp.equals(other.exp) && isGlobal == other.isGlobal;
+      return name == other.name
+          && exp.equals(other.exp)
+          && isGlobal == other.isGlobal;
     }
 
     return false;

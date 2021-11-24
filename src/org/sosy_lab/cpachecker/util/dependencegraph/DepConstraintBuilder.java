@@ -19,29 +19,45 @@
  */
 package org.sosy_lab.cpachecker.util.dependencegraph;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.Sets;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.sosy_lab.cpachecker.cfa.ast.AExpression;
 import org.sosy_lab.cpachecker.cfa.ast.FileLocation;
 import org.sosy_lab.cpachecker.cfa.ast.c.CArraySubscriptExpression;
+import org.sosy_lab.cpachecker.cfa.ast.c.CAssignment;
 import org.sosy_lab.cpachecker.cfa.ast.c.CBinaryExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CBinaryExpression.BinaryOperator;
 import org.sosy_lab.cpachecker.cfa.ast.c.CExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CExpressionAssignmentStatement;
+import org.sosy_lab.cpachecker.cfa.ast.c.CFunctionCall;
+import org.sosy_lab.cpachecker.cfa.ast.c.CIdExpression;
+import org.sosy_lab.cpachecker.cfa.ast.c.CInitializerExpression;
+import org.sosy_lab.cpachecker.cfa.ast.c.CIntegerLiteralExpression;
+import org.sosy_lab.cpachecker.cfa.ast.c.CParameterDeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.c.CPointerExpression;
+import org.sosy_lab.cpachecker.cfa.ast.c.CReturnStatement;
 import org.sosy_lab.cpachecker.cfa.ast.c.CStatement;
+import org.sosy_lab.cpachecker.cfa.ast.c.CVariableDeclaration;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
+import org.sosy_lab.cpachecker.cfa.model.c.CAssumeEdge;
+import org.sosy_lab.cpachecker.cfa.model.c.CDeclarationEdge;
+import org.sosy_lab.cpachecker.cfa.model.c.CFunctionCallEdge;
+import org.sosy_lab.cpachecker.cfa.model.c.CReturnStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.c.CStatementEdge;
 import org.sosy_lab.cpachecker.cfa.types.c.CArrayType;
 import org.sosy_lab.cpachecker.cfa.types.c.CPointerType;
 import org.sosy_lab.cpachecker.cfa.types.c.CSimpleType;
 import org.sosy_lab.cpachecker.cfa.types.c.CType;
 import org.sosy_lab.cpachecker.util.Pair;
+import org.sosy_lab.cpachecker.util.Triple;
 import org.sosy_lab.cpachecker.util.dependence.conditional.CondDepConstraints;
 import org.sosy_lab.cpachecker.util.dependence.conditional.EdgeSharedVarAccessExtractor.VarVisitor;
 import org.sosy_lab.cpachecker.util.dependence.conditional.EdgeVtx;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ExpToStringVisitor;
+import org.sosy_lab.cpachecker.util.dependence.conditional.ReplaceVisitor;
 import org.sosy_lab.cpachecker.util.dependence.conditional.Var;
 
 public class DepConstraintBuilder {
@@ -85,12 +101,14 @@ public class DepConstraintBuilder {
           handleArrayDepConstraints(pNode1, pNode2, pUseCondDepConstraints);
       // handle normal constraint.
       CondDepConstraints normalConstraint =
-          handleNormalDepConstraints(pNode1, pNode2, pUseCondDepConstraints);
+          pUseCondDepConstraints
+              ? handleNormalDepConstraints2(pNode1, pNode2, pUseCondDepConstraints)
+              : handleNormalDepConstraints(pNode1, pNode2, pUseCondDepConstraints);
 
       return CondDepConstraints.mergeConstraints(
           pointerConstraint, arrayConstraint, normalConstraint);
     } else {
-      // complex DGNodes could only compute the un-conditional dependence.
+      // currently, complex DGNodes could only compute the un-conditional dependence.
 
       // handle pointer constraint.
       CondDepConstraints pointerConstraint = handlePointerDepConstraints(pNode1, pNode2, false);
@@ -143,8 +161,11 @@ public class DepConstraintBuilder {
   private CondDepConstraints handlePointer(Set<Pair<Var, Var>> pPointerSet) {
     Set<Pair<CExpression, String>> ptrConstraints = new HashSet<>();
 
+    boolean haveConfVars = false;
     for (Pair<Var, Var> ptrPair : pPointerSet) {
       Var lhsVar = ptrPair.getFirst(), rhsVar = ptrPair.getSecond();
+      // check whether the two pointers are the same variable.
+      haveConfVars = haveConfVars ? true : lhsVar.equals(rhsVar);
       // special for pointer types.
       CExpression lhsCmpExp = (CExpression) handlePointerVarExp(lhsVar.getExp()),
           rhsCmpExp = (CExpression) handlePointerVarExp(rhsVar.getExp());
@@ -165,7 +186,7 @@ public class DepConstraintBuilder {
               cstDescription));
     }
 
-    return new CondDepConstraints(ptrConstraints, false);
+    return new CondDepConstraints(ptrConstraints, false, haveConfVars);
   }
 
   private AExpression handlePointerVarExp(AExpression pExp) {
@@ -250,8 +271,11 @@ public class DepConstraintBuilder {
   private CondDepConstraints handleArr(Set<Pair<Var, Var>> pArrPairs) {
     Set<Pair<CExpression, String>> arrConstraints = new HashSet<>();
 
+    boolean haveConfVars = false;
     for(Pair<Var, Var> arrPair : pArrPairs) {
       Var lhsVar = arrPair.getFirst(), rhsVar = arrPair.getSecond();
+      //
+      haveConfVars = haveConfVars ? true : lhsVar.equals(rhsVar);
       // special for array types.
       CExpression lhsVarExp = (CExpression) lhsVar.getExp(),
           rhsVarExp = (CExpression) rhsVar.getExp();
@@ -283,7 +307,7 @@ public class DepConstraintBuilder {
       }
     }
 
-    return new CondDepConstraints(arrConstraints, false);
+    return new CondDepConstraints(arrConstraints, false, haveConfVars);
   }
 
   /**
@@ -341,8 +365,10 @@ public class DepConstraintBuilder {
       // for simple DGNode which contains only one potential conflict variable, we special process.
       if (confVarSet.size() == 1) {
         CType type = confVarSet.iterator().next().getVarType();
-        CExpressionAssignmentStatement stmt1 = getAssignmentStatement(pNode1.getBlockStartEdge()),
-            stmt2 = getAssignmentStatement(pNode2.getBlockStartEdge());
+        CExpressionAssignmentStatement stmt1 =
+            getAssignmentStatement(pNode1.getBlockStartEdge(), confVarSet.iterator().next()),
+            stmt2 =
+                getAssignmentStatement(pNode2.getBlockStartEdge(), confVarSet.iterator().next());
 
         if (stmt1 == null && stmt2 == null) {
           // both the two edges are not assignment statements, but there is a global variable they
@@ -369,6 +395,48 @@ public class DepConstraintBuilder {
     return null;
   }
 
+  /*
+   * This function handles the normal dependence constraints of two {@link DGNode}.
+   * 
+   * @param pNode1 The first {@link DGNode}.
+   * @param pNode2 The second {@link DGNode}.
+   * @return The conditional dependence constraints of these two simple {@link DGNode}.
+   */
+  private CondDepConstraints
+      handleNormalDepConstraints2(EdgeVtx pNode1, EdgeVtx pNode2, boolean pUseCondDep) {
+    Class<CSimpleType> pType = CSimpleType.class;
+
+    Set<Var> vr1 = pNode1.getReadVarsByType(pType), vw1 = pNode1.getWriteVarsByType(pType);
+    Set<Var> vr2 = pNode2.getReadVarsByType(pType), vw2 = pNode2.getWriteVarsByType(pType);
+
+    Set<Var> r1w2 = Sets.intersection(vr1, vw2);
+    Set<Var> w1r2 = Sets.intersection(vw1, vr2);
+    Set<Var> w1w2 = Sets.intersection(vw1, vw2);
+    Set<Var> confVarSet = Sets.union(r1w2, Sets.union(w1r2, w1w2));
+
+    // these two nodes access the same global variable.
+    if (!confVarSet.isEmpty()) {
+      // for simple DGNode which contains only one potential conflict variable (can special
+      // process).
+      if (confVarSet.size() == 1) {
+        // <assume, assign1, assign2>
+        // if there is no assume edge, then the first element is null;
+        // if there is an assume edge (notice: there are at most one assume edge), then the third
+        // element is null.
+        Triple<Pair<EdgeVtx, CExpression>, Pair<EdgeVtx, CExpressionAssignmentStatement>, Pair<EdgeVtx, CExpressionAssignmentStatement>> aa2 =
+            getAssumeAndAssignStmts(pNode1, pNode2, confVarSet.iterator().next());
+        //
+        return computeConstraints(aa2, pUseCondDep);
+      } else {
+        // have multiple potential conflict variables.
+        return CondDepConstraints.unCondDepConstraint;
+      }
+    }
+
+    // for normal processing, the two DGNodes are independent.
+    return null;
+  }
+
   /**
    * This function handles two write assignment statements.
    *
@@ -385,7 +453,7 @@ public class DepConstraintBuilder {
     if (lhs.equals(rhs)) {
       return CondDepConstraints.unCondDepConstraint;
     }
-    return new CondDepConstraints(Set.of(Pair.of(condConstraint, cstDescription)), false);
+    return new CondDepConstraints(Set.of(Pair.of(condConstraint, cstDescription)), false, true);
   }
 
   /**
@@ -406,26 +474,292 @@ public class DepConstraintBuilder {
     if (lhs.equals(rhs)) {
       return CondDepConstraints.unCondDepConstraint;
     }
-    return new CondDepConstraints(Set.of(Pair.of(condConstraint, cstDescription)), false);
+    return new CondDepConstraints(Set.of(Pair.of(condConstraint, cstDescription)), false, true);
   }
 
   /**
    * This function get the assignment statement of the given edge.
    *
    * @param pEdge The edge that need to be analyzed.
-   * @return Return the assignment statement of this edge if it contains a {@link
-   *     CExpressionAssignmentStatement}, and return null, otherwise.
+   * @param pGAVar The commonly accessed global variable.
+   * @return Return the assignment statement of this edge if it contains a
+   *         {@link CExpressionAssignmentStatement}, and return null, otherwise.
    */
-  private CExpressionAssignmentStatement getAssignmentStatement(CFAEdge pEdge) {
+  private CExpressionAssignmentStatement getAssignmentStatement(CFAEdge pEdge, Var pGAVar) {
     if(pEdge != null) {
       if(pEdge instanceof CStatementEdge) {
         CStatement stmt = ((CStatementEdge) pEdge).getStatement();
         if(stmt instanceof CExpressionAssignmentStatement) {
           return (CExpressionAssignmentStatement) stmt;
         }
+      } else if (pEdge instanceof CDeclarationEdge) {
+        CVariableDeclaration decl =
+            (CVariableDeclaration) ((CDeclarationEdge) pEdge).getDeclaration();
+        // only process initialized edge.
+        if (decl.getInitializer() != null) {
+          // create variable.
+          CIdExpression var =
+              new CIdExpression(decl.getFileLocation(), decl.getType(), decl.getName(), decl);
+          // create assignment statement.
+          CInitializerExpression initExp = (CInitializerExpression) decl.getInitializer();
+          return new CExpressionAssignmentStatement(
+                  decl.getFileLocation(),
+                  var,
+                  initExp.getExpression());
+        }
+      } else if (pEdge instanceof CReturnStatementEdge) {
+        Optional<CReturnStatement> rtStmt = ((CReturnStatementEdge) pEdge).getRawAST();
+        if (rtStmt.isPresent()) {
+          Optional<CAssignment> rtAsg = rtStmt.get().asAssignment();
+          return rtAsg.isPresent() ? (CExpressionAssignmentStatement) rtAsg.get() : null;
+        }
+      } else if (pEdge instanceof CFunctionCallEdge) {
+        // get actual parameters.
+        List<CExpression> fcActualParms = ((CFunctionCallEdge) pEdge).getArguments();
+        if (fcActualParms != null && !fcActualParms.isEmpty()) {
+          if (fcActualParms.size() == 1) {
+            Optional<CFunctionCall> fcStmt = ((CFunctionCallEdge) pEdge).getRawAST();
+            if (fcStmt.isPresent()) {
+              // get formal parameters.
+              List<CParameterDeclaration> fcFormalParms =
+                  fcStmt.get().getFunctionCallExpression().getDeclaration().getParameters();
+
+              // create tmp local variable for the formal parameter, since formal parameter cannot
+              // be LHS variable.
+              CParameterDeclaration fcFmParm = fcFormalParms.get(0);
+              CIdExpression tmpLHSParm =
+                  new CIdExpression(
+                      fcFmParm.getFileLocation(),
+                      fcFmParm.getType(),
+                      fcFmParm.getName(),
+                      fcFmParm);
+              // create assignment statement for the common accessed variable.
+              return new CExpressionAssignmentStatement(
+                  pEdge.getFileLocation(),
+                  tmpLHSParm,
+                  fcActualParms.get(0));
+            }
+          } else {
+            // since we cannot determine which formal parameter the actual parameter write to, we
+            // need consider it conservatively (unconditional dependent with other statements which
+            // write the same global variable).
+            return null;
+          }
+        }
       }
     }
     return null;
+  }
+
+  /*
+   * Obtain the assume and assignment triple of the given two edges. If there are no assume edge,
+   * then the first element (boolean expression) is null; If there is an assume edge (at most one
+   * assume edge since two assume edge are independent), then the third element (assignment
+   * statement) is null.
+   * 
+   * @param pNode1 The first node that need to be analyzed.
+   * @param pNode2 The second node that need to be analyzed.
+   * @return Return a triple <assume_exp, assignemnt_stmt1, assignment_stmt2>.
+   */
+  private
+      Triple<Pair<EdgeVtx, CExpression>, Pair<EdgeVtx, CExpressionAssignmentStatement>, Pair<EdgeVtx, CExpressionAssignmentStatement>>
+      getAssumeAndAssignStmts(EdgeVtx pNode1, EdgeVtx pNode2, Var pGAVar) {
+    //
+    CFAEdge pEdge1 =
+        pNode1.getBlockEdgeNumber() == 1 ? pNode1.getBlockStartEdge() : pNode1.getEdge(1);
+    CFAEdge pEdge2 =
+        pNode2.getBlockEdgeNumber() == 1 ? pNode2.getBlockStartEdge() : pNode2.getEdge(1);
+    
+    // handle assume edge.
+    Pair<EdgeVtx, CExpression> assumeExpPair =
+        pEdge1 instanceof CAssumeEdge
+            ? Pair.of(pNode1, ((CAssumeEdge) pEdge1).getExpression())
+            : (pEdge2 instanceof CAssumeEdge
+                ? Pair.of(pNode2, ((CAssumeEdge) pEdge2).getExpression())
+                : null);
+
+    // handle assignment edge.
+    CExpressionAssignmentStatement asgStmt1 = getAssignmentStatement(pEdge1, pGAVar),
+        asgStmt2 = getAssignmentStatement(pEdge2, pGAVar);
+
+    assert (asgStmt1 != null || asgStmt2 != null);
+    Pair<EdgeVtx, CExpressionAssignmentStatement> asgStmt1Pair =
+        asgStmt1 != null
+            ? Pair.of(pNode1, asgStmt1)
+            : (asgStmt2 != null ? Pair.of(pNode2, asgStmt2) : null);
+    Pair<EdgeVtx, CExpressionAssignmentStatement> asgStmt2Pair =
+        asgStmt1 != null && asgStmt2 != null ? Pair.of(pNode2, asgStmt2) : null;
+
+    return Triple.of(
+        assumeExpPair,
+        asgStmt1Pair,
+        asgStmt2Pair);
+  }
+
+  private CondDepConstraints computeConstraints(
+      Triple<Pair<EdgeVtx, CExpression>, Pair<EdgeVtx, CExpressionAssignmentStatement>, Pair<EdgeVtx, CExpressionAssignmentStatement>> pAA2,
+      boolean pUseCondDep) {
+    Pair<EdgeVtx, CExpression> assumePair = pAA2.getFirst();
+    Pair<EdgeVtx, CExpressionAssignmentStatement> asgStmt1Pair = pAA2.getSecond(),
+        asgStmt2Pair = pAA2.getThird();
+
+    if (assumePair == null) {
+      // both the two nodes are assignment statements.
+      if (asgStmt1Pair == null || asgStmt2Pair == null) {
+        // we cannot get precise assignment pair of these two node (mainly caused by the
+        // function-call that contains multiple parameters).
+        // e.g., x is a global variable, func(int a, bool b):
+        // func(x, x+1); x = x + 2; => they access the same global variable x, and
+        // func(x, x+1) should output two assignments {(a = x), (b = x + 1)}.
+        // However, 'EdgeVtx' of func(x, x+1) is ({x}_r, {}_w), we cannot obtain a single assignment
+        // statement.
+        return CondDepConstraints.unCondDepConstraint;
+      }
+
+      // obtain statements of the two nodes.
+      CExpressionAssignmentStatement asgStmt1 = asgStmt1Pair.getSecond(),
+          asgStmt2 = asgStmt2Pair.getSecond();
+      // obtain the two nodes and read/write variables.
+      EdgeVtx asgStmt1Node = asgStmt1Pair.getFirst(), asgStmt2Node = asgStmt2Pair.getFirst();
+      Set<Var> asgStmt1WVars = asgStmt1Node.getgWriteVars(),
+          asgStmt2WVars = asgStmt2Node.getgWriteVars();
+      
+      if(asgStmt1.toString().equals(asgStmt2.toString())) {
+        // short cut.
+        // cover case: 1. (x = a + b, x = a + b); 2. (x = x + 1, x = x + 1)
+        return null;
+      } else {
+        // case: 3. (x = a + b, x = x + 1)  => UCD
+        // case: 4. (l1 = x + 1, x = a + b) => x == (a + b)
+        // case: 5. (l1 = x + 1, x = x + 1) => UCD
+
+        // determine which one is read event (notice: at most one of the two nodes is an read event).
+        Pair<EdgeVtx, CExpressionAssignmentStatement> readStmtPair = asgStmt1WVars.isEmpty() ? asgStmt1Pair : (asgStmt2WVars.isEmpty() ? asgStmt2Pair : null);
+
+        // for case 3:
+        if (readStmtPair == null) {
+          return CondDepConstraints.unCondDepConstraint;
+        } else {
+          // determine which one is write event.
+          Pair<EdgeVtx, CExpressionAssignmentStatement> writeStmtPair =
+              asgStmt1Pair.equals(readStmtPair) ? asgStmt2Pair : asgStmt1Pair;
+          
+          // obtain the write-variable and read-variable of the write event.
+          Set<Var> lhsWVars = writeStmtPair.getFirst().getgWriteVars(),
+              rhsRVars = writeStmtPair.getFirst().getgReadVars();
+          
+          if (Sets.intersection(lhsWVars, rhsRVars).isEmpty()) {
+            // for case 4:
+            CExpressionAssignmentStatement wAsgStmt = writeStmtPair.getSecond();
+            CExpression wAsgLHSExp = wAsgStmt.getLeftHandSide(),
+                wAsgRHSExp = wAsgStmt.getRightHandSide();
+
+            CBinaryExpression constraint =
+                new CBinaryExpression(
+                wAsgLHSExp.getFileLocation(),
+                wAsgLHSExp.getExpressionType(),
+                wAsgLHSExp.getExpressionType(),
+                wAsgLHSExp,
+                wAsgRHSExp,
+                BinaryOperator.EQUALS);
+            return new CondDepConstraints(
+                Set.of(Pair.of(constraint, constraint.toASTString())),
+                pUseCondDep,
+                true);
+          } else {
+            // for case 5:
+            return CondDepConstraints.unCondDepConstraint;
+          }
+        }
+      }
+    } else {
+      // one of the two nodes are assume edge.
+      assert(assumePair != null && asgStmt1Pair != null);
+      Set<Var> assumeRVars = assumePair.getFirst().getgReadVars(),
+          asgLHSWVars = asgStmt1Pair.getFirst().getgWriteVars();
+      // the two nodes are statically dependent.
+      assert (!Sets.intersection(assumeRVars, asgLHSWVars).isEmpty());
+
+      // obtain the expression and statement from these two node.
+      CExpression assExp = assumePair.getSecond();
+      boolean isTrueBranch =
+          ((CAssumeEdge) assumePair.getFirst().getBlockStartEdge()).getTruthAssumption();
+      CExpressionAssignmentStatement asgStmt = asgStmt1Pair.getSecond();
+
+      // (x > 0, x = a + b) => (a + b > 0)
+      // (!(x > 0), x = x + 1) => (x + 1 <= 0)
+      ReplaceVisitor replacer =
+          new ReplaceVisitor(asgStmt.getLeftHandSide(), asgStmt.getRightHandSide());
+      CExpression repRes = handleCMPOperator(assExp.accept(replacer), isTrueBranch);
+
+      return new CondDepConstraints(
+          Set.of(Pair.of(repRes, repRes.toASTString())),
+          pUseCondDep,
+          true);
+    }
+  }
+
+  /*
+   * Replace the comparison operator in pExp. NOTICE: Due to the expression of naive false branch is
+   * the same as the true branch, we need to replace the operator of the false branch. e.g., x >= 0
+   * => x < 0; !x => x == 0
+   * 
+   * @param pExp The expression that is needed to be replaced.
+   * 
+   * @param pIsTrueBranch Whether the given expression is the false branch. If not, we just return
+   * the original expression; Otherwise, we replace the operator with corresponding inversed
+   * operator.
+   * 
+   * @return The replaced operator.
+   */
+  private CExpression handleCMPOperator(CExpression pExp, boolean pIsTrueBranch) {
+    if (pIsTrueBranch) {
+      return pExp;
+    } else {
+      // false branch, we need to reverse the expression.
+      if (pExp instanceof CBinaryExpression) {
+        // e.g., x >= 0 => x < 0
+        CBinaryExpression binExp = (CBinaryExpression) pExp;
+        switch (binExp.getOperator()) {
+          case LESS_THAN: // <
+            return replaceCMPOperator(binExp, BinaryOperator.GREATER_EQUAL);
+          case GREATER_THAN: // >
+            return replaceCMPOperator(binExp, BinaryOperator.LESS_EQUAL);
+          case LESS_EQUAL: // <=
+            return replaceCMPOperator(binExp, BinaryOperator.GREATER_THAN);
+          case GREATER_EQUAL: // >=
+            return replaceCMPOperator(binExp, BinaryOperator.LESS_THAN);
+          case EQUALS: // ==
+            return replaceCMPOperator(binExp, BinaryOperator.NOT_EQUALS);
+          case NOT_EQUALS: // !=
+            return replaceCMPOperator(binExp, BinaryOperator.EQUALS);
+          default:
+            return pExp;
+        }
+      } else {
+        // e.g., !x => x == 0
+        return new CBinaryExpression(
+            pExp.getFileLocation(),
+            pExp.getExpressionType(),
+            pExp.getExpressionType(),
+            pExp,
+            CIntegerLiteralExpression.ZERO,
+            BinaryOperator.EQUALS);
+      }
+    }
+  }
+
+  /*
+   * We just create a new binary expression since we cannot modify it.
+   */
+  private CBinaryExpression replaceCMPOperator(CBinaryExpression pExp, BinaryOperator pOp) {
+    return new CBinaryExpression(
+        pExp.getFileLocation(),
+        pExp.getExpressionType(),
+        pExp.getCalculationType(),
+        pExp.getOperand1(),
+        pExp.getOperand2(),
+        pOp);
   }
 
 }

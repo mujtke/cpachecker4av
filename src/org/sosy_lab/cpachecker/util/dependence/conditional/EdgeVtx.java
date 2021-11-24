@@ -22,6 +22,7 @@ package org.sosy_lab.cpachecker.util.dependence.conditional;
 import static com.google.common.collect.FluentIterable.from;
 
 import com.google.common.collect.Sets;
+import java.util.List;
 import java.util.Set;
 import java.util.function.BiFunction;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
@@ -35,7 +36,7 @@ public class EdgeVtx implements DGNode {
       (vv, name) -> from(vv).filter(v -> v.getName().equals(name)).toSet();
 
   private final CFAEdge blockStartEdge;
-  private final Set<CFAEdge> blockEdges;
+  private final List<CFAEdge> blockEdges;
   private final Set<Var> gReadVars;
   private final Set<Var> gWriteVars;
   private final boolean simpleEdgeVtx;
@@ -43,7 +44,7 @@ public class EdgeVtx implements DGNode {
 
   public EdgeVtx(
       final CFAEdge pEdge,
-      final Set<CFAEdge> pEdges,
+      final List<CFAEdge> pEdges,
       final Set<Var> pGRVars,
       final Set<Var> pGWVars,
       boolean pSimpleEdgeVtx,
@@ -62,19 +63,30 @@ public class EdgeVtx implements DGNode {
     assert pVtxOther != null;
 
     blockStartEdge = pVtxOther.blockStartEdge;
-    blockEdges = Set.copyOf(pVtxOther.blockEdges);
+    blockEdges = List.copyOf(pVtxOther.blockEdges);
     gReadVars = Set.copyOf(pVtxOther.gReadVars);
     gWriteVars = Set.copyOf(pVtxOther.gWriteVars);
     simpleEdgeVtx = pVtxOther.simpleEdgeVtx;
     blockEdgeNumber = pVtxOther.blockEdgeNumber;
   }
 
+  public int getBlockSize() {
+    return blockEdges.size();
+  }
+
   public CFAEdge getBlockStartEdge() {
     return blockStartEdge;
   }
 
-  public Set<CFAEdge> getBlockEdges() {
+  public List<CFAEdge> getBlockEdges() {
     return blockEdges;
+  }
+
+  public CFAEdge getEdge(int index) {
+    if (index < blockEdges.size()) {
+      return blockEdges.get(index);
+    }
+    return null;
   }
 
   public Set<Var> getgReadVars() {
