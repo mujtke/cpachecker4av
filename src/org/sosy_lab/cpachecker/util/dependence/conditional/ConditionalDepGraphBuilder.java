@@ -24,6 +24,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
 import de.uni_freiburg.informatik.ultimate.smtinterpol.util.ArrayQueue;
 import java.io.IOException;
@@ -52,8 +53,12 @@ import org.sosy_lab.common.configuration.Options;
 import org.sosy_lab.common.io.IO;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
+import org.sosy_lab.cpachecker.cfa.ast.AExpression;
+import org.sosy_lab.cpachecker.cfa.ast.AFunctionCall;
 import org.sosy_lab.cpachecker.cfa.ast.AFunctionCallStatement;
+import org.sosy_lab.cpachecker.cfa.ast.AIdExpression;
 import org.sosy_lab.cpachecker.cfa.ast.AStatement;
+import org.sosy_lab.cpachecker.cfa.ast.AUnaryExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CDeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.c.CFunctionDeclaration;
 import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
@@ -140,8 +145,21 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     description = "Export this dependency graph into a file in DOT format.")
   private boolean exportToDot = false;
 
+  @Option(
+    secure = true,
+    description = "Remove isolated nodes in the conditional dependency graph, these nodes have no effect with other transitions.")
+  private boolean removeIsolatedNodes = false;
+
+  @Option(
+    secure = true,
+    description = "Use solver to compute more precise independence constraints (time-consuming), otherwise we only simply the constraints.")
+  private boolean useSolverToCompute = false;
+
   private static final String specialSelfBlockFunction = "__VERIFIER_atomic_";
   private static final String cloneFunction = "__cloned_function__";
+  // This set is used to collect the function names of all created threads.
+  // It's unnecessary to create edges for inner transitions pairs of a thread.
+  private List<String> threadFunctions = new ArrayList<>();
 
   private BiMap<Integer, EdgeVtx> nodes;
   private Table<EdgeVtx, EdgeVtx, CondDepConstraints> depGraph;
@@ -152,6 +170,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
       throws InvalidConfigurationException {
     pConfig.inject(this);
 
+    DepConstraintBuilder.setUseSolverToCompute(this.useSolverToCompute);
     cfa = pCfa;
     logger = pLogger;
     statistics = new CondDepGraphBuilderStatistics();
@@ -176,6 +195,7 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     // secondly, build the conditional dependence graph.
     statistics.depGraphBuildTimer.start();
     depGraph = buildDependenceGraph(nodes);
+    postProcess();
     statistics.depGraphBuildTimer.stop();
 
     // build and export this graph.
@@ -297,6 +317,9 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
           waitlist.add(edge.getSuccessor());
           continue;
         }
+
+        // process thread creation edge.
+        processEdgeIfThreadCreation(edge);
 
         if (isBlockStartPoint(edgeFuncName)) {
           // handle block.
@@ -581,14 +604,25 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     }
 
     // mark that this block is not a simple block.
-    resDepNode =
-        new EdgeVtx(
-            resDepNode.getBlockStartEdge(),
-            blockEdges,
-            resDepNode.getgReadVars(),
-            resDepNode.getgWriteVars(),
-            false,
-            processedEdgeNumber);
+    if (innerProcEdgeNumber == 2) {
+      resDepNode =
+          new EdgeVtx(
+              resDepNode.getBlockStartEdge(),
+              blockEdges,
+              resDepNode.getgReadVars(),
+              resDepNode.getgWriteVars(),
+              true,
+              processedEdgeNumber);
+    } else {
+      resDepNode =
+          new EdgeVtx(
+              resDepNode.getBlockStartEdge(),
+              blockEdges,
+              resDepNode.getgReadVars(),
+              resDepNode.getgWriteVars(),
+              false,
+              processedEdgeNumber);
+    }
 
     // empty block, we should not put it into the dependence graph.
     if (resDepNode.getgReadVars().isEmpty() && resDepNode.getgWriteVars().isEmpty()) {
@@ -656,6 +690,9 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
             resDGNode = resDGNode.mergeGlobalRWVarsOnly(tmpDGNode);
           }
 
+          // process thread creation edge.
+          processEdgeIfThreadCreation(edge);
+
           CFANode edgeSucNode = edge.getSuccessor();
           // skip the visited and function exit nodes.
           if (!pVisitedNodes.contains(edgeSucNode) && !(edgeSucNode instanceof FunctionExitNode)) {
@@ -688,6 +725,30 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     }
   }
 
+  private void processEdgeIfThreadCreation(final CFAEdge pEdge) {
+    if (pEdge instanceof AStatementEdge) {
+      AStatement statement = ((AStatementEdge) pEdge).getStatement();
+      if (statement instanceof AFunctionCall) {
+        AExpression functionNameExp =
+            ((AFunctionCall) statement).getFunctionCallExpression().getFunctionNameExpression();
+        if (functionNameExp instanceof AIdExpression) {
+          String funcName = ((AIdExpression) functionNameExp).getName();
+          if (funcName.contains("pthread_create")) {
+            // get the name of created thread.
+            AExpression createdThreadExp = ((AFunctionCall) statement).getFunctionCallExpression()
+            .getParameterExpressions()
+            .get(2);
+            
+            threadFunctions.add(
+                createdThreadExp instanceof AUnaryExpression
+                    ? ((AUnaryExpression) createdThreadExp).getOperand().toASTString()
+                    : createdThreadExp.toASTString());
+          }
+        }
+      }
+    }
+  }
+
   private Table<EdgeVtx, EdgeVtx, CondDepConstraints> buildDependenceGraph(
       BiMap<Integer, EdgeVtx> pDGNodes) {
     HashBasedTable<EdgeVtx, EdgeVtx, CondDepConstraints> resDepGraph = HashBasedTable.create();
@@ -708,6 +769,15 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
           continue;
         }
 
+        // we need not to create constraints for a pair of transitions that belongs to the same
+        // thread.
+        if (rowFun.equals(colFun)) {
+          String[] splitStr = rowFun.split(cloneFunction);
+          if (splitStr != null && splitStr.length > 0 && threadFunctions.contains(splitStr[0])) {
+            continue;
+          }
+        }
+
         CondDepConstraints condDepConstraints =
             builder.buildDependenceConstraints(rowNode, colNode, useConditionalDep);
 
@@ -722,6 +792,21 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     }
 
     return resDepGraph;
+  }
+
+  private void postProcess() {
+    // remove isolated nodes in node list.
+    if (removeIsolatedNodes) {
+      Set<EdgeVtx> dgNodes = new HashSet<>(nodes.values()),
+          rowColNodes = Sets.union(depGraph.rowKeySet(), depGraph.columnKeySet());
+      Set<EdgeVtx> toRemove = Sets.difference(dgNodes, rowColNodes);
+      //
+      if (!toRemove.isEmpty()) {
+        BiMap<EdgeVtx, Integer> invNodes = nodes.inverse();
+        toRemove.forEach(i -> invNodes.remove(i));
+        nodes = invNodes.inverse();
+      }
+    }
   }
 
   @SuppressWarnings("unused")

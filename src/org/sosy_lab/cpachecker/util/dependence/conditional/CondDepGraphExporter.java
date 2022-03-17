@@ -81,7 +81,13 @@ public class CondDepGraphExporter {
     String nodeId = getNodeRepresentation(pNode);
 
     CFAEdge nodeEdge = pNode.getBlockStartEdge();
-    String nodeDescription = (nodeEdge.getPredecessor().getFunctionName() + ": " + nodeEdge.toString()).replaceAll("\\\"", "\\\\\"");
+    String edgeDesc =
+        pNode.getBlockEdgeNumber() == 2
+            ? "(simple block): " + pNode.getEdge(1).toString()
+            : nodeEdge.toString();
+    String nodeDescription =
+        (nodeEdge.getPredecessor().getFunctionName() + ": " + edgeDesc)
+            .replaceAll("\\\"", "\\\\\"");
 
     return nodeId + " [shape=\"" + pShape + "\", label=\"" + nodeDescription + "\"]";
   }

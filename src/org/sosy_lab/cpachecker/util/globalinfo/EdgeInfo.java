@@ -10,13 +10,18 @@ package org.sosy_lab.cpachecker.util.globalinfo;
 
 import com.google.common.base.Preconditions;
 import java.util.logging.Level;
+import org.sosy_lab.common.ShutdownNotifier;
 import org.sosy_lab.common.configuration.Configuration;
 import org.sosy_lab.common.configuration.InvalidConfigurationException;
+import org.sosy_lab.common.configuration.Option;
+import org.sosy_lab.common.configuration.Options;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraphBuilder;
+import org.sosy_lab.cpachecker.util.dependencegraph.DepConstraintBuilder;
 
+@Options(prefix = "utils.edgeinfo")
 public class EdgeInfo {
 
   // We need the CFA to extract the information of edges.
@@ -24,18 +29,35 @@ public class EdgeInfo {
   private final Configuration config;
   private final ConditionalDepGraphBuilder builder;
 
+  @Option(
+    description = "build conditional dependent graph (only for partial-order reduction)",
+    secure = true)
+  private boolean buildDepGraph = false;
+
   // -------- Extracted Information --------
   // The dependent graph of edges in the CFA.
   private final ConditionalDepGraph condDepGraph;
 
-  public EdgeInfo(final CFA pCfa, final Configuration pConfig, final LogManager pLogger)
+  public EdgeInfo(
+      final CFA pCfa,
+      final Configuration pConfig,
+      final LogManager pLogger,
+      final ShutdownNotifier pShutdownNotifier)
       throws InvalidConfigurationException {
     cfa = Preconditions.checkNotNull(pCfa);
     config = Preconditions.checkNotNull(pConfig);
 
-    builder = new ConditionalDepGraphBuilder(cfa, config, pLogger);
-    pLogger.log(Level.INFO, "Building Conditional Dependency Graph ...");
-    condDepGraph = builder.build();
+    pConfig.inject(this);
+
+    if (buildDepGraph) {
+      DepConstraintBuilder.setupEnvironment(cfa, config, pLogger, pShutdownNotifier);
+      builder = new ConditionalDepGraphBuilder(cfa, config, pLogger);
+      pLogger.log(Level.INFO, "Building Conditional Dependency Graph ...");
+      condDepGraph = builder.build();
+    } else {
+      builder = null;
+      condDepGraph = null;
+    }
   }
 
   public ConditionalDepGraph getCondDepGraph() {

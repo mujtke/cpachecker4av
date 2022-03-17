@@ -11,6 +11,7 @@ package org.sosy_lab.cpachecker.util.globalinfo;
 import com.google.common.base.Preconditions;
 import java.util.Optional;
 import java.util.logging.Level;
+import org.sosy_lab.common.ShutdownNotifier;
 import org.sosy_lab.common.configuration.Configuration;
 import org.sosy_lab.common.configuration.InvalidConfigurationException;
 import org.sosy_lab.common.log.LogManager;
@@ -58,12 +59,13 @@ public class GlobalInfo {
     return Optional.ofNullable(cfaInfo);
   }
 
-  public synchronized void buildEdgeInfo(final Configuration pConfig) {
+  public synchronized void
+      buildEdgeInfo(final Configuration pConfig, final ShutdownNotifier pShutdownNotifier) {
     Preconditions.checkState((cfaInfo != null) && (logger != null) && (pConfig != null));
 
     try {
       CFA cfa = cfaInfo.getCFA();
-      edgeInfo = new EdgeInfo(cfa, pConfig, logger);
+      edgeInfo = new EdgeInfo(cfa, pConfig, logger, pShutdownNotifier);
     } catch (InvalidConfigurationException e) {
       logger
           .log(Level.SEVERE, "Failed to build the Conditional Dependency Graph: " + e.getMessage());
