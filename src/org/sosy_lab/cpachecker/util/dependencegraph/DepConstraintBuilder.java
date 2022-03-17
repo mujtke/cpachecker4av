@@ -20,10 +20,17 @@
 package org.sosy_lab.cpachecker.util.dependencegraph;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
+import org.sosy_lab.common.ShutdownNotifier;
+import org.sosy_lab.common.configuration.Configuration;
+import org.sosy_lab.common.configuration.InvalidConfigurationException;
+import org.sosy_lab.common.log.LogManager;
+import org.sosy_lab.cpachecker.cfa.CFA;
 import org.sosy_lab.cpachecker.cfa.ast.AExpression;
 import org.sosy_lab.cpachecker.cfa.ast.FileLocation;
 import org.sosy_lab.cpachecker.cfa.ast.c.CArraySubscriptExpression;
@@ -36,6 +43,7 @@ import org.sosy_lab.cpachecker.cfa.ast.c.CFunctionCall;
 import org.sosy_lab.cpachecker.cfa.ast.c.CIdExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CInitializerExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CIntegerLiteralExpression;
+import org.sosy_lab.cpachecker.cfa.ast.c.CLeftHandSide;
 import org.sosy_lab.cpachecker.cfa.ast.c.CParameterDeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.c.CPointerExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CReturnStatement;
@@ -51,6 +59,7 @@ import org.sosy_lab.cpachecker.cfa.types.c.CArrayType;
 import org.sosy_lab.cpachecker.cfa.types.c.CPointerType;
 import org.sosy_lab.cpachecker.cfa.types.c.CSimpleType;
 import org.sosy_lab.cpachecker.cfa.types.c.CType;
+import org.sosy_lab.cpachecker.core.AnalysisDirection;
 import org.sosy_lab.cpachecker.util.Pair;
 import org.sosy_lab.cpachecker.util.Triple;
 import org.sosy_lab.cpachecker.util.dependence.conditional.CondDepConstraints;
@@ -59,21 +68,87 @@ import org.sosy_lab.cpachecker.util.dependence.conditional.EdgeVtx;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ExpToStringVisitor;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ReplaceVisitor;
 import org.sosy_lab.cpachecker.util.dependence.conditional.Var;
+import org.sosy_lab.cpachecker.util.predicates.pathformula.PathFormula;
+import org.sosy_lab.cpachecker.util.predicates.pathformula.PathFormulaManager;
+import org.sosy_lab.cpachecker.util.predicates.pathformula.PathFormulaManagerImpl;
+import org.sosy_lab.cpachecker.util.predicates.pathformula.SSAMap;
+import org.sosy_lab.cpachecker.util.predicates.pathformula.pointeraliasing.PointerTargetSet;
+import org.sosy_lab.cpachecker.util.predicates.smt.FormulaManagerView;
+import org.sosy_lab.cpachecker.util.predicates.smt.Solver;
+import org.sosy_lab.java_smt.api.BooleanFormula;
+import org.sosy_lab.java_smt.api.BooleanFormulaManager;
+import org.sosy_lab.java_smt.api.ProverEnvironment;
 
 public class DepConstraintBuilder {
+
+  private static boolean useSolverToCompute = false;
 
   private static DepConstraintBuilder builder;
   private static ExpToStringVisitor exprVisitor;
 
+  private static CFA cfa;
+  private static Configuration config;
+  private static LogManager logger;
+  private static ShutdownNotifier shutdownNotifier;
+  private static Solver solver;
+  private static ProverEnvironment prover;
+  private static FormulaManagerView fmgr;
+  private static PathFormulaManager pfmgr;
+  private static BooleanFormulaManager bfmgr;
+
+  private static PathFormula emptyPathFormula;
+
+  public static void setupEnvironment(
+      CFA pCfa,
+      Configuration pConfig,
+      LogManager pLogger,
+      ShutdownNotifier pShutdownNotifier) {
+    cfa = pCfa;
+    config = pConfig;
+    logger = pLogger;
+    shutdownNotifier = pShutdownNotifier;
+  }
+
+  public static void setUseSolverToCompute(boolean pUseSolverToCompute) {
+    useSolverToCompute = pUseSolverToCompute;
+  }
+
   public static DepConstraintBuilder getInstance() {
     if (builder == null) {
-      builder = new DepConstraintBuilder();
+      try {
+        builder = new DepConstraintBuilder();
+      } catch (InvalidConfigurationException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
       exprVisitor = ExpToStringVisitor.getInstance();
     }
     return builder;
   }
 
-  private DepConstraintBuilder() {}
+  private DepConstraintBuilder()
+      throws InvalidConfigurationException {
+    solver = Solver.create(config, logger, shutdownNotifier);
+    fmgr = solver.getFormulaManager();
+    pfmgr =
+        new PathFormulaManagerImpl(
+            fmgr,
+            config,
+            logger,
+            shutdownNotifier,
+            cfa,
+            AnalysisDirection.FORWARD);
+    bfmgr = fmgr.getBooleanFormulaManager();
+    emptyPathFormula =
+        new PathFormula(
+            bfmgr.makeTrue(),
+            SSAMap.emptySSAMap(),
+            PointerTargetSet.emptyPointerTargetSet(),
+            0);
+    if (useSolverToCompute) {
+      prover = solver.newProverEnvironment();
+    }
+  }
 
   /**
    * This function generates the conditional dependence constraints for two {@link DGNode}.
@@ -602,6 +677,184 @@ public class DepConstraintBuilder {
     Pair<EdgeVtx, CExpression> assumePair = pAA2.getFirst();
     Pair<EdgeVtx, CExpressionAssignmentStatement> asgStmt1Pair = pAA2.getSecond(),
         asgStmt2Pair = pAA2.getThird();
+    
+    // both the two nodes are assignment statements.
+    if(assumePair == null) {
+      if (asgStmt1Pair == null || asgStmt2Pair == null) {
+        // we cannot get precise assignment pair of these two node (mainly caused by the
+        // function-call that contains multiple parameters).
+        // e.g., x is a global variable, func(int a, bool b):
+        // func(x, x+1); x = x + 2; => they access the same global variable x, and
+        // func(x, x+1) should output two assignments {(a = x), (b = x + 1)}.
+        // However, 'EdgeVtx' of func(x, x+1) is ({x}_r, {}_w), we cannot obtain a single assignment
+        // statement.
+        return CondDepConstraints.unCondDepConstraint;
+      }
+      
+      // obtain statements of the two nodes.
+      CExpressionAssignmentStatement asgStmt1 = asgStmt1Pair.getSecond(), asgStmt2 = asgStmt2Pair.getSecond();
+      CLeftHandSide asgStmt1LHS = asgStmt1.getLeftHandSide(),
+          asgStmt2LHS = asgStmt2.getLeftHandSide();
+      CExpression asgStmt1RHS = asgStmt1.getRightHandSide(),
+          asgStmt2RHS = asgStmt2.getRightHandSide();
+      
+      // declare replacer.
+      ReplaceVisitor stmt1Replacer = new ReplaceVisitor(asgStmt1LHS, asgStmt1RHS),
+          stmt2Replacer = new ReplaceVisitor(asgStmt2LHS, asgStmt2RHS);
+
+      if (asgStmt1LHS.toASTString().equals(asgStmt2LHS.toASTString())) {
+        //// case: t1: y = exp_1; t2: y = exp_2
+        // for execution orders 't1;t2' and 't2;t1'
+        CExpression resOrder12 = asgStmt2RHS.accept(stmt1Replacer),
+            resOrder21 = asgStmt1RHS.accept(stmt2Replacer);
+        if (!resOrder12.toASTString().equals(resOrder21.toASTString())) {
+          CBinaryExpression constraint =
+              new CBinaryExpression(
+                  resOrder12.getFileLocation(),
+                  resOrder12.getExpressionType(),
+                  resOrder21.getExpressionType(),
+                  resOrder12,
+                  resOrder21,
+                  BinaryOperator.EQUALS);
+          return checkSatOfConstraintAndReturn(
+              new CondDepConstraints(
+                  Set.of(Pair.of(constraint, constraint.toASTString())),
+              pUseCondDep,
+                  true));
+        } else {
+          // for the case: t1: y = x + 1; t2: y = x + 1;
+          // they are independent.
+          return null;
+        }
+      } else {
+        //// case: t1: x = exp_1; t2: y = exp_2
+        // for execution order 't1; t2':
+        CExpression resOrder12Var1 = asgStmt1RHS,
+            resOrder12Var2 = asgStmt2RHS.accept(stmt1Replacer);
+        // for execution order 't2; t1':
+        CExpression resOrder21Var1 = asgStmt1RHS.accept(stmt2Replacer),
+            resOrder21Var2 = asgStmt2RHS;
+
+        if (!resOrder12Var1.toASTString().equals(resOrder21Var1.toASTString())) {
+          CBinaryExpression constraint =
+              new CBinaryExpression(
+                  resOrder12Var1.getFileLocation(),
+                  resOrder12Var1.getExpressionType(),
+                  resOrder21Var1.getExpressionType(),
+                  resOrder12Var1,
+                  resOrder21Var1,
+                  BinaryOperator.EQUALS);
+          return checkSatOfConstraintAndReturn(
+              new CondDepConstraints(
+              Set.of(Pair.of(constraint, constraint.toASTString())),
+              pUseCondDep,
+                  true));
+        } else if (!resOrder12Var2.toASTString().equals(resOrder21Var2.toASTString())) {
+          CBinaryExpression constraint =
+              new CBinaryExpression(
+                  resOrder12Var2.getFileLocation(),
+                  resOrder12Var2.getExpressionType(),
+                  resOrder21Var2.getExpressionType(),
+                  resOrder12Var2,
+                  resOrder21Var2,
+                  BinaryOperator.EQUALS);
+          return checkSatOfConstraintAndReturn(
+              new CondDepConstraints(
+              Set.of(Pair.of(constraint, constraint.toASTString())),
+              pUseCondDep,
+                  true));
+        } else {
+          // both of the replacements are equal, which indicates that the two transitions are
+          // independent.
+          return null;
+        }
+      }
+    } else {
+      // one of the two nodes are assume edge.
+      assert (assumePair != null && asgStmt1Pair != null);
+      Set<Var> assumeRVars = assumePair.getFirst().getgReadVars(),
+          asgLHSWVars = asgStmt1Pair.getFirst().getgWriteVars();
+      // the two nodes are statically dependent.
+      assert (!Sets.intersection(assumeRVars, asgLHSWVars).isEmpty());
+
+      // obtain the expression and statement from these two node.
+      CExpression assExp = assumePair.getSecond();
+      boolean isTrueBranch =
+          ((CAssumeEdge) assumePair.getFirst().getBlockStartEdge()).getTruthAssumption();
+      CExpressionAssignmentStatement asgStmt = asgStmt1Pair.getSecond();
+      
+      // (x > 0, x = a + b) => (a + b > 0)
+      // (!(x > 0), x = x + 1) => (x + 1 <= 0)
+      ReplaceVisitor replacer =
+          new ReplaceVisitor(asgStmt.getLeftHandSide(), asgStmt.getRightHandSide());
+      CExpression repRes = handleCMPOperator(assExp.accept(replacer), isTrueBranch);
+
+      return checkSatOfConstraintAndReturn(
+          new CondDepConstraints(
+          Set.of(Pair.of(repRes, repRes.toASTString())),
+          pUseCondDep,
+              true));
+    }
+  }
+
+  /**
+   * This function checks whether the given constraints are unconditionally independent. e.g., c1: x
+   * == y => x == y; c3: x == x+1 => \top
+   * 
+   * @param pConstraints It contains a set of constraints and have the form: c_1 /\ c_2 ... /\ c_n.
+   * @return Return the original constraints if all constraints in the set are satisfiable.
+   */
+  private CondDepConstraints checkSatOfConstraintAndReturn(final CondDepConstraints pConstraints) {
+    Preconditions.checkNotNull(pConstraints);
+
+    // this flag is used to check whether all constraints are always satisifiable.
+    // if so, then the constraint will be null (i.e., corresponding transitions are naturally
+    // independent)
+    boolean areAllTop = true;
+
+    try {
+      for (Pair<CExpression, String> c : pConstraints.getConstraints()) {
+        BooleanFormula constraintBoolFormula =
+            fmgr.simplify(pfmgr.makeAnd(emptyPathFormula, c.getFirst()).getFormula());
+        if (bfmgr.isTrue(constraintBoolFormula)) {
+          continue;
+        } else if (bfmgr.isFalse(constraintBoolFormula)) {
+          return CondDepConstraints.unCondDepConstraint;
+        }
+        areAllTop = false; // exist one constraint that is not always satisfiable.
+        if (useSolverToCompute) {
+          prover.push(constraintBoolFormula);
+
+          if (prover.isUnsat()) {
+            // case: c: x == x + 1 (this constraint cannot be satisfied)
+            return CondDepConstraints.unCondDepConstraint;
+          }
+          // clean up prover.
+          prover.pop();
+        }
+      }
+    } catch (Exception e) {
+      logger.log(
+          Level.WARNING,
+          "exception occured when checking the satisfiability of constraints: " + pConstraints);
+      e.printStackTrace();
+    }
+
+    if (areAllTop) {
+      // case: c1: 1 < 2; c2: x == x (these constraints are always satisfiable)
+      return null;
+    } else {
+      // case: c: x == y (this constraint can be satisfied, e.g., x = 1 and y = 1)
+      return pConstraints;
+    }
+  }
+
+  private CondDepConstraints computeConstraints2(
+      Triple<Pair<EdgeVtx, CExpression>, Pair<EdgeVtx, CExpressionAssignmentStatement>, Pair<EdgeVtx, CExpressionAssignmentStatement>> pAA2,
+      boolean pUseCondDep) {
+    Pair<EdgeVtx, CExpression> assumePair = pAA2.getFirst();
+    Pair<EdgeVtx, CExpressionAssignmentStatement> asgStmt1Pair = pAA2.getSecond(),
+        asgStmt2Pair = pAA2.getThird();
 
     if (assumePair == null) {
       // both the two nodes are assignment statements.
@@ -632,13 +885,49 @@ public class DepConstraintBuilder {
         // case: 3. (x = a + b, x = x + 1)  => UCD
         // case: 4. (l1 = x + 1, x = a + b) => x == (a + b)
         // case: 5. (l1 = x + 1, x = x + 1) => UCD
+        // case: 6. (x = a + b, y = x) => x == (a + b)
 
         // determine which one is read event (notice: at most one of the two nodes is an read event).
         Pair<EdgeVtx, CExpressionAssignmentStatement> readStmtPair = asgStmt1WVars.isEmpty() ? asgStmt1Pair : (asgStmt2WVars.isEmpty() ? asgStmt2Pair : null);
 
-        // for case 3:
+        // for case 3 & 6:
         if (readStmtPair == null) {
-          return CondDepConstraints.unCondDepConstraint;
+          // both the two statements are write event.
+          Set<Var> asgStmt1LHSWVar = asgStmt1Pair.getFirst().getgWriteVars(),
+              asgStmt2LHSWVar = asgStmt2Pair.getFirst().getgWriteVars();
+
+          if (Sets.intersection(asgStmt1LHSWVar, asgStmt2LHSWVar).isEmpty()) {
+            // case 6.
+            CExpression w1AsgStmtRHS = asgStmt1Pair.getSecond().getRightHandSide(),
+                w2AsgStmtRHS = asgStmt2Pair.getSecond().getRightHandSide();
+
+            if (asgStmt1Pair.toString().contains("__unbuffered_p0_EAX")) {
+              int kk = 0;
+            }
+
+            if (isOperatorTypeEqual(w1AsgStmtRHS, w2AsgStmtRHS)) {
+              CBinaryExpression constraint =
+                  new CBinaryExpression(
+                      w1AsgStmtRHS.getFileLocation(),
+                      w1AsgStmtRHS.getExpressionType(),
+                      w1AsgStmtRHS.getExpressionType(),
+                      w1AsgStmtRHS,
+                      w2AsgStmtRHS,
+                      BinaryOperator.EQUALS);
+              return new CondDepConstraints(
+                  Set.of(Pair.of(constraint, constraint.toASTString())),
+                  pUseCondDep,
+                  true);
+            } else {
+              // special case: y = (x == 3); x = x + 1;
+              // since the rhs of the first expression is 'bool', while the rhs of the second
+              // expression is 'int'.
+              return CondDepConstraints.unCondDepConstraint;
+            }
+          } else {
+            // case 3.
+            return CondDepConstraints.unCondDepConstraint;
+          }
         } else {
           // determine which one is write event.
           Pair<EdgeVtx, CExpressionAssignmentStatement> writeStmtPair =
@@ -696,6 +985,68 @@ public class DepConstraintBuilder {
           Set.of(Pair.of(repRes, repRes.toASTString())),
           pUseCondDep,
           true);
+    }
+  }
+
+  private boolean isOperatorTypeEqual(CExpression pExp1, CExpression pExp2) {
+    boolean op1IsLogical = false, op1IsArithmetic = false, op1IsEmpty = true;
+    boolean op2IsLogical = false, op2IsArithmetic = false, op2IsEmpty = true;
+
+    if (pExp1 instanceof CBinaryExpression) {
+      BinaryOperator op = ((CBinaryExpression) pExp1).getOperator();
+      op1IsLogical = isLogicalOp(op);
+      op1IsArithmetic = isArithmeticOp(op);
+      op1IsEmpty = false;
+    } else {
+      op1IsLogical = false;
+      op1IsArithmetic = false;
+      op1IsEmpty = true;
+    }
+
+    if (pExp2 instanceof CBinaryExpression) {
+      BinaryOperator op = ((CBinaryExpression) pExp2).getOperator();
+      op2IsLogical = isLogicalOp(op);
+      op2IsArithmetic = isArithmeticOp(op);
+      op2IsEmpty = false;
+    } else {
+      op2IsLogical = false;
+      op2IsArithmetic = false;
+      op2IsEmpty = true;
+    }
+
+    return (op1IsLogical && op2IsLogical)
+            || (op1IsArithmetic && op2IsArithmetic)
+        || (op1IsEmpty && op2IsEmpty)
+            || (op1IsArithmetic && op2IsEmpty)
+            || (op1IsEmpty && op2IsArithmetic);
+  }
+
+  private boolean isArithmeticOp(BinaryOperator op) {
+    switch (op) {
+      case MULTIPLY:
+      case DIVIDE:
+      case PLUS:
+      case MINUS:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private boolean isLogicalOp(BinaryOperator op) {
+    switch (op) {
+      case LESS_THAN:
+      case GREATER_THAN:
+      case LESS_EQUAL:
+      case GREATER_EQUAL:
+      case BINARY_AND:
+      case BINARY_XOR:
+      case BINARY_OR:
+      case EQUALS:
+      case NOT_EQUALS:
+        return true;
+      default:
+        return false;
     }
   }
 
