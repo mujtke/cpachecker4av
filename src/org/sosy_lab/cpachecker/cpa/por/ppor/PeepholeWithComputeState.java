@@ -30,14 +30,15 @@ import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.cpa.locationss.LocationsState;
 import org.sosy_lab.cpachecker.util.threading.MultiThreadState;
 
-public class PeepholeState implements AbstractState {
+public class PeepholeWithComputeState implements AbstractState {
 
   private int threadCounter;
   private CFAEdge procEdge;
   private LocationsState threadLocs;
   private Map<String, Integer> threadIdNumbers;
+  private AbstractState computeState;
 
-  public static PeepholeState
+  public static PeepholeWithComputeState
       getInitialInstance(CFANode pInitNode, String pMainThreadId, boolean pIsFollowFunCalls) {
     assert pInitNode.getNumLeavingEdges() == 1;
     int initThreadCounter = 0;
@@ -49,25 +50,36 @@ public class PeepholeState implements AbstractState {
     Map<String, Integer> initThreadIdNumbers = new HashMap<>();
     initThreadIdNumbers.put(pMainThreadId, initThreadCounter);
 
-    return new PeepholeState(initThreadCounter, initEdge, initThreadLocs, initThreadIdNumbers);
+    return new PeepholeWithComputeState(
+        initThreadCounter,
+        initEdge,
+        initThreadLocs,
+        initThreadIdNumbers,
+        null);
   }
 
-  public PeepholeState(
+  public PeepholeWithComputeState(
       final int pThreadCounter,
       final CFAEdge pEdge,
       final LocationsState pLocs,
-      final Map<String, Integer> pThreadIdNumbers) {
+      final Map<String, Integer> pThreadIdNumbers,
+      AbstractState pComputeState) {
     assert pThreadCounter >= 0;
 
     threadCounter = pThreadCounter;
     procEdge = checkNotNull(pEdge);
     threadLocs = checkNotNull(pLocs);
     threadIdNumbers = checkNotNull(pThreadIdNumbers);
+    computeState = pComputeState;
   }
 
   @Override
   public int hashCode() {
-    return threadCounter + procEdge.hashCode() + threadLocs.hashCode() + threadIdNumbers.hashCode();
+    return threadCounter
+        + procEdge.hashCode()
+        + threadLocs.hashCode()
+        + threadIdNumbers.hashCode()
+        + computeState.hashCode();
   }
 
   @Override
@@ -76,12 +88,13 @@ public class PeepholeState implements AbstractState {
       return true;
     }
 
-    if (pObj != null && pObj instanceof PeepholeState) {
-      PeepholeState other = (PeepholeState) pObj;
+    if (pObj != null && pObj instanceof PeepholeWithComputeState) {
+      PeepholeWithComputeState other = (PeepholeWithComputeState) pObj;
       return threadCounter == other.threadCounter
           && procEdge.equals(other.procEdge)
           && threadLocs.equals(other.threadLocs)
-          && threadIdNumbers.equals(other.threadIdNumbers);
+          && threadIdNumbers.equals(other.threadIdNumbers)
+          && computeState.equals(other.computeState);
     }
 
     return false;
@@ -132,6 +145,14 @@ public class PeepholeState implements AbstractState {
 
     assert thread != null && threadIdNumbers.containsKey(thread);
     return threadIdNumbers.get(thread);
+  }
+
+  public AbstractState getComputeState() {
+    return computeState;
+  }
+
+  public void setComputeState(AbstractState pComputeState) {
+    computeState = pComputeState;
   }
 
 }

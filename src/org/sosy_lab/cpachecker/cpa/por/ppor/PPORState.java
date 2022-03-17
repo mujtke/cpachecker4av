@@ -19,7 +19,6 @@
  */
 package org.sosy_lab.cpachecker.cpa.por.ppor;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
@@ -34,17 +33,12 @@ public class PPORState implements AbstractState {
 
   public static PPORState getInitialInstance(
       CFANode pInitNode, String pMainThreadId, boolean pIsFollowFunCalls) {
-    assert pInitNode.getNumLeavingEdges() == 1;
-    int initThreadCounter = 0;
-    CFAEdge initEdge = pInitNode.getLeavingEdge(0);
+    return new PPORState(
+        PeepholeState.getInitialInstance(pInitNode, pMainThreadId, pIsFollowFunCalls));
+  }
 
-    LocationsState initThreadLocs =
-        LocationsState.getInitialInstance(pInitNode, pMainThreadId, pIsFollowFunCalls);
-
-    Map<String, Integer> initThreadIdNumbers = new HashMap<>();
-    initThreadIdNumbers.put(pMainThreadId, initThreadCounter);
-
-    return new PPORState(initThreadCounter, initEdge, initThreadLocs, initThreadIdNumbers);
+  public PPORState(PeepholeState pPState) {
+    stateInstance = pPState;
   }
 
   public PPORState(
