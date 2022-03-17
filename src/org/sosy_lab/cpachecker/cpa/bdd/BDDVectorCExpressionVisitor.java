@@ -57,7 +57,10 @@ public class BDDVectorCExpressionVisitor
   /** This Visitor returns the numeral value for an expression.
    * @param pMachineModel where to get info about types, for casting and overflows
    */
-  protected BDDVectorCExpressionVisitor(final PredicateManager pPredMgr, final VariableTrackingPrecision pPrecision,
+  // sujie 2021.11.25
+  public BDDVectorCExpressionVisitor(
+      final PredicateManager pPredMgr,
+      final VariableTrackingPrecision pPrecision,
                                      final BitvectorManager pBVmgr, final MachineModel pMachineModel,
                                      final CFANode pLocation) {
     this.predMgr = pPredMgr;

@@ -38,6 +38,16 @@ public class BDDState implements AbstractQueryableState, Graphable,
     return true;
   }
 
+  // sujie add 2021.11.25
+  public NamedRegionManager getManager() {
+    return manager;
+  }
+
+  // sujie add 2021.11.25
+  public BitvectorManager getBvmgr() {
+    return bvmgr;
+  }
+
   public BDDState(NamedRegionManager mgr, BitvectorManager bvmgr, Region state) {
     this.currentState = state;
     this.manager = mgr;

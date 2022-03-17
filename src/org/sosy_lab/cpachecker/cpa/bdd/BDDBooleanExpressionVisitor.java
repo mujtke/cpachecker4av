@@ -35,7 +35,11 @@ public class BDDBooleanExpressionVisitor
   protected final CFANode location;
 
   /** This Visitor returns the boolean value for an expression. */
-  protected BDDBooleanExpressionVisitor(final PredicateManager pPredMgr, final RegionManager pRmgr, final VariableTrackingPrecision pPrecision, final CFANode pLocation) {
+  protected BDDBooleanExpressionVisitor(
+      final PredicateManager pPredMgr,
+      final RegionManager pRmgr,
+      final VariableTrackingPrecision pPrecision,
+      final CFANode pLocation) {
     this.predMgr = pPredMgr;
     this.rmgr = pRmgr;
     this.precision = pPrecision;
