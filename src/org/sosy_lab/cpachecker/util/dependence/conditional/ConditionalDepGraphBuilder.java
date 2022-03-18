@@ -155,6 +155,11 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     description = "Use solver to compute more precise independence constraints (time-consuming), otherwise we only simply the constraints.")
   private boolean useSolverToCompute = false;
 
+  @Option(
+    secure = true,
+    description = "Whether build node and constraints for navie thread function (these functions are never used in real ARG exploration). Notice that, if this option and buildForClonedFunctions are disabled, then an empty graph will be generated.")
+  private boolean buildForNoneCloneThread = false;
+
   private static final String specialSelfBlockFunction = "__VERIFIER_atomic_";
   private static final String cloneFunction = "__cloned_function__";
   // This set is used to collect the function names of all created threads.
@@ -776,6 +781,12 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
           if (splitStr != null && splitStr.length > 0 && threadFunctions.contains(splitStr[0])) {
             continue;
           }
+        }
+
+        // the naive thread functions are never used in real ARG exploration.
+        if (!buildForNoneCloneThread
+            && (threadFunctions.contains(rowFun) || threadFunctions.contains(colFun))) {
+          continue;
         }
 
         CondDepConstraints condDepConstraints =
