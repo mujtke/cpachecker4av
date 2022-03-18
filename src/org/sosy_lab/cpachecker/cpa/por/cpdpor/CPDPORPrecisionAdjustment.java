@@ -12,7 +12,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.FluentIterable.from;
 
 import com.google.common.base.Function;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -146,7 +146,38 @@ public class CPDPORPrecisionAdjustment implements PrecisionAdjustment {
 
       // explore this 'global access' successor.
       if (!gvaSuccessors.isEmpty()) {
-        // System.out.println("reach gva: " + gvaSuccessors.size());
+        // firstly, we need to update all the sleep set of all gvaSuccessors.
+        if (!cpdporParState.isUpdated()) {
+          if (gvaSuccessors.size() > 1) {
+            ImmutableList<CPDPORState> updateGVASuccessors =
+                from(gvaSuccessors)
+                    .transform(s -> AbstractStates.extractStateByType(s, CPDPORState.class))
+                    .toList();
+            // obtain parent computation state to determine the dependency of successor transitions.
+            AbstractState parComputeState =
+                AbstractStates.extractStateByType(argParState, BDDState.class);
+
+            for (int i = 0; i < updateGVASuccessors.size() - 1; ++i) {
+              CPDPORState cpdporAState = updateGVASuccessors.get(i);
+              CFAEdge cpdporAStateEdge = cpdporAState.getCurrentTransferInEdge();
+              int cpdporAStateThrdId = cpdporAState.getCurrentTransferInEdgeThreadId();
+
+              for (int j = i + 1; j < updateGVASuccessors.size(); ++j) {
+                CPDPORState cpdporBState = updateGVASuccessors.get(j);
+                CFAEdge cpdporBStateEdge = cpdporBState.getCurrentTransferInEdge();
+
+                // determine whether the transfer-info of A-state is independent with the
+                // transfer-info of B-state.
+                if (canSkip(cpdporAStateEdge, cpdporBStateEdge, (BDDState) parComputeState)) {
+                  // the transfer-info of A-state can avoid.
+                  cpdporBState
+                      .addThreadInfoSleep(Pair.of(cpdporAStateThrdId, cpdporAStateEdge.hashCode()));
+                }
+              }
+            }
+          }
+          cpdporParState.setAsUpdated();
+        }
 
         // check whether current transfer-in edge is in the sleep set of parent state.
         int curTransInThreadId = cpdporCurState.getCurrentTransferInEdgeThreadId();
@@ -155,44 +186,11 @@ public class CPDPORPrecisionAdjustment implements PrecisionAdjustment {
                 curTransInThreadId,
                 cpdporCurStateInEdge.hashCode());
         if (cpdporParState.isInSleepSet(curTransInfo)) {
-          // current edge is in the sleep set, we need not to explore this edge.
-          // but firstly, we need to remove this sleep transfer from other child states.
-          gvaSuccessors.forEach(
-              s -> AbstractStates.extractStateByType(s, CPDPORState.class)
-                  .removeFromSleepSet(curTransInfo));
           statistics.realRedundantTimes.inc();
           statistics.avoidExplorationTimes.inc();
           return Optional.empty();
         } else {
-          // we only need to the following things if the parent state has more than two
-          // gvaSuccessors.
-          if (gvaSuccessors.size() > 1) {
-            // determine the dependency of current transfer-edge with other transfer-edge.
-            // notice: we only need to compare with the threads which id is smaller than current.
-            AbstractState parComputeState =
-                AbstractStates.extractStateByType(argParState, BDDState.class);
-            // get all states that thread-id is smaller than current thread-id.
-            ImmutableSet<ARGState> checkStateSet =
-                from(gvaSuccessors).filter(
-                    s -> AbstractStates.extractStateByType(s, CPDPORState.class)
-                        .getCurrentTransferInEdgeThreadId() < curTransInThreadId)
-                    .toSet();
-            for (ARGState gvaChildState : checkStateSet) {
-              CPDPORState cpdporCheckState =
-                  AbstractStates.extractStateByType(gvaChildState, CPDPORState.class);
-              CFAEdge checkStateEdge = cpdporCheckState.getCurrentTransferInEdge();
-              int checkStateThreadId = cpdporCheckState.getCurrentTransferInEdgeThreadId();
-
-              // determine whether the transfer-info of check-state is independent with current
-              // transfer-info.
-              if (canSkip(checkStateEdge, cpdporCurStateInEdge, (BDDState) parComputeState)) {
-                // the transfer-info of check-state can avoid.
-                cpdporCurState
-                    .addThreadInfoSleep(Pair.of(checkStateThreadId, checkStateEdge.hashCode()));
-              }
-            }
-          }
-
+          // we need to explore this edge.
           return Optional.of(
               PrecisionAdjustmentResult
                   .create(pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));

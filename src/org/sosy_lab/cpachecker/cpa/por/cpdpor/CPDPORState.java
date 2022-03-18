@@ -25,6 +25,7 @@ public class CPDPORState implements AbstractState {
   private EdgeType transferInEdgeType;
   // {<thread_id, transfer_edgehash>, ...}
   private Set<Pair<Integer, Integer>> sleepSet;
+  private boolean isUpdated;
 
   public static CPDPORState
       getInitialInstance(CFANode pInitNode, String pMainThreadId, boolean pIsFollowFunCalls) {
@@ -33,16 +34,18 @@ public class CPDPORState implements AbstractState {
     PeepholeState tmpCurState =
         PeepholeState.getInitialInstance(pInitNode, pMainThreadId, pIsFollowFunCalls);
 
-    return new CPDPORState(tmpCurState, EdgeType.NEdge, new HashSet<>());
+    return new CPDPORState(tmpCurState, EdgeType.NEdge, new HashSet<>(), false);
   }
 
   public CPDPORState(
       PeepholeState pCurState,
       EdgeType pTransferInEdgeType,
-      Set<Pair<Integer, Integer>> pSleepSet) {
+      Set<Pair<Integer, Integer>> pSleepSet,
+      boolean pIsUpdated) {
     curState = pCurState;
     transferInEdgeType = pTransferInEdgeType;
     sleepSet = pSleepSet;
+    isUpdated = pIsUpdated;
   }
 
   @Override
@@ -82,6 +85,14 @@ public class CPDPORState implements AbstractState {
         + ", sleepSet: "
         + sleepSet
         + ")";
+  }
+
+  public boolean isUpdated() {
+    return isUpdated;
+  }
+
+  public void setAsUpdated() {
+    isUpdated = true;
   }
 
   public PeepholeState getCurState() {

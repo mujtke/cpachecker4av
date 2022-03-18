@@ -98,7 +98,8 @@ public class CPDPORTransferRelation extends SingleEdgeTransferRelation {
                   newLocs,
                   newThreadIdNumbers),
               determineEdgeType(pCfaEdge),
-              new HashSet<>()));
+              new HashSet<>(),
+              false));
     }
   }
 
