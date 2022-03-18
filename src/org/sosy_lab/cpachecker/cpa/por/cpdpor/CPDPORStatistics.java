@@ -35,4 +35,6 @@ public class CPDPORStatistics {
       new StatCounter("CPDPOR check-skip conditional independent times");
   final StatCounter checkSkipOtherCaseTimes =
       new StatCounter("CPDPOR check-skip failed times (other cases)");
+  final StatCounter realRedundantTimes = new StatCounter("CPDPOR real redundant times");
+  final StatCounter avoidExplorationTimes = new StatCounter("CPDPOR avoid exploration times");
 }

@@ -53,6 +53,13 @@ public class CPDPORCPAStatistics implements Statistics {
     pOut.println(
         "   Other Cases (loop start or thread creation) Times: "
             + statistics.checkSkipOtherCaseTimes.getUpdateCount());
+    pOut.println("CPDPOR avoid exploration information: ");
+    pOut.println(
+        "   Avoid Exploration Total Times:             "
+            + statistics.avoidExplorationTimes.getUpdateCount());
+    pOut.println(
+        "   Real Redundant (Constraint Computation):   "
+            + statistics.realRedundantTimes.getUpdateCount());
   }
 
   @Override

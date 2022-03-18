@@ -117,6 +117,7 @@ public class CPDPORPrecisionAdjustment implements PrecisionAdjustment {
                   .create(pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
         } else {
           // we need not to explore other normal successors.
+          statistics.avoidExplorationTimes.inc();
           return Optional.empty();
         }
       }
@@ -137,6 +138,7 @@ public class CPDPORPrecisionAdjustment implements PrecisionAdjustment {
         } else {
           // a common assume branches have already explored, we need not to explore other assume
           // branches (i.e., we have explored the assume branches of a thread).
+          statistics.avoidExplorationTimes.inc();
           return Optional.empty();
         }
       }
@@ -158,6 +160,8 @@ public class CPDPORPrecisionAdjustment implements PrecisionAdjustment {
           gvaSuccessors.forEach(
               s -> AbstractStates.extractStateByType(s, CPDPORState.class)
                   .removeFromSleepSet(curTransInfo));
+          statistics.realRedundantTimes.inc();
+          statistics.avoidExplorationTimes.inc();
           return Optional.empty();
         } else {
           // we only need to the following things if the parent state has more than two
