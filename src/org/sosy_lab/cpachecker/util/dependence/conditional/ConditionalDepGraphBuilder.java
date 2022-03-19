@@ -34,7 +34,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -72,7 +71,6 @@ import org.sosy_lab.cpachecker.cfa.model.c.CDeclarationEdge;
 import org.sosy_lab.cpachecker.cfa.model.c.CFunctionSummaryStatementEdge;
 import org.sosy_lab.cpachecker.core.CPAcheckerResult.Result;
 import org.sosy_lab.cpachecker.core.interfaces.Statistics;
-import org.sosy_lab.cpachecker.core.interfaces.StatisticsProvider;
 import org.sosy_lab.cpachecker.core.reachedset.UnmodifiableReachedSet;
 import org.sosy_lab.cpachecker.util.Pair;
 import org.sosy_lab.cpachecker.util.dependence.DGNode;
@@ -80,7 +78,7 @@ import org.sosy_lab.cpachecker.util.dependencegraph.DepConstraintBuilder;
 
 /** Factory for creating a {@link ConditionalDepGraph} from a {@link CFA}. */
 @Options(prefix = "depgraph.cond")
-public class ConditionalDepGraphBuilder implements StatisticsProvider {
+public class ConditionalDepGraphBuilder {
 
   private final CFA cfa;
   private final LogManager logger;
@@ -831,11 +829,6 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
     }
   }
 
-  @Override
-  public void collectStatistics(Collection<Statistics> pStatsCollection) {
-    pStatsCollection.add(getCondDepGraphBuildStatistics());
-  }
-
   public Statistics getCondDepGraphBuildStatistics() {
     return new Statistics() {
 
@@ -843,6 +836,8 @@ public class ConditionalDepGraphBuilder implements StatisticsProvider {
       public void printStatistics(
           PrintStream pOut, Result pResult, UnmodifiableReachedSet pReached) {
         if (statistics.depGraphBuildTimer.getUpdateCount() > 0) {
+          pOut.println("\nConstrained Dependency Graph statistics");
+          pOut.println("---------------------------------------");
           put(pOut, 0, statistics.nodeBuildTimer);
           put(pOut, 0, statistics.depGraphBuildTimer);
           put(pOut, 1, statistics.gVarAccessNodeNumber);

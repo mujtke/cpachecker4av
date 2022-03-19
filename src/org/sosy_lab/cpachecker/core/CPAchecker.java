@@ -364,6 +364,9 @@ public class CPAchecker {
 
         GlobalInfo.getInstance().setUpInfoFromCPA(cpa);
 
+        ((StatisticsProvider) GlobalInfo.getInstance().getEdgeInfo())
+            .collectStatistics(stats.getSubStatistics());
+
         algorithm = factory.createAlgorithm(cpa, cfa, specification);
 
         if (algorithm instanceof MPVAlgorithm && !stopAfterError) {

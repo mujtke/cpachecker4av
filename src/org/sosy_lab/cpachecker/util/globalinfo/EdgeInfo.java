@@ -9,6 +9,7 @@
 package org.sosy_lab.cpachecker.util.globalinfo;
 
 import com.google.common.base.Preconditions;
+import java.util.Collection;
 import java.util.logging.Level;
 import org.sosy_lab.common.ShutdownNotifier;
 import org.sosy_lab.common.configuration.Configuration;
@@ -17,12 +18,14 @@ import org.sosy_lab.common.configuration.Option;
 import org.sosy_lab.common.configuration.Options;
 import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
+import org.sosy_lab.cpachecker.core.interfaces.Statistics;
+import org.sosy_lab.cpachecker.core.interfaces.StatisticsProvider;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraphBuilder;
 import org.sosy_lab.cpachecker.util.dependencegraph.DepConstraintBuilder;
 
 @Options(prefix = "utils.edgeinfo")
-public class EdgeInfo {
+public class EdgeInfo implements StatisticsProvider {
 
   // We need the CFA to extract the information of edges.
   private final CFA cfa;
@@ -30,7 +33,7 @@ public class EdgeInfo {
   private final ConditionalDepGraphBuilder builder;
 
   @Option(
-    description = "build conditional dependent graph (only for partial-order reduction)",
+    description = "build constrained dependency graph (only for partial-order reduction)",
     secure = true)
   private boolean buildDepGraph = false;
 
@@ -52,7 +55,7 @@ public class EdgeInfo {
     if (buildDepGraph) {
       DepConstraintBuilder.setupEnvironment(cfa, config, pLogger, pShutdownNotifier);
       builder = new ConditionalDepGraphBuilder(cfa, config, pLogger);
-      pLogger.log(Level.INFO, "Building Conditional Dependency Graph ...");
+      pLogger.log(Level.INFO, "Building Constrained Dependency Graph ...");
       condDepGraph = builder.build();
     } else {
       builder = null;
@@ -62,6 +65,11 @@ public class EdgeInfo {
 
   public ConditionalDepGraph getCondDepGraph() {
     return condDepGraph;
+  }
+
+  @Override
+  public void collectStatistics(Collection<Statistics> pStatsCollection) {
+    pStatsCollection.add(builder.getCondDepGraphBuildStatistics());
   }
 
 }
