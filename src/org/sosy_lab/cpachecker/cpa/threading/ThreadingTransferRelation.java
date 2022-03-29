@@ -102,6 +102,13 @@ public final class ThreadingTransferRelation extends SingleEdgeTransferRelation 
   )
   private boolean useAllPossibleClones = false;
 
+  @Option(
+    secure = true,
+    description = "use increased number for each newly created same thread."
+        + "When this option is enabled, we need not to clone a thread function many times if "
+        + "every thread function is only used once (i.e., cfa.cfaCloner.numberOfCopies can be set to 1).")
+  private boolean useIncClonedFunc = false;
+
   public static final String THREAD_START = "pthread_create";
   public static final String THREAD_JOIN = "pthread_join";
   private static final String THREAD_EXIT = "pthread_exit";
@@ -430,7 +437,12 @@ public final class ThreadingTransferRelation extends SingleEdgeTransferRelation 
 
     } else {
       // a default reachability analysis can determine the thread-number on its own.
-      int newThreadNum = threadingState.getSmallestMissingThreadNum();
+      int newThreadNum = 0;
+      if (useIncClonedFunc) {
+        newThreadNum = threadingState.getNewThreadNum(function.getName());
+      } else {
+        newThreadNum = threadingState.getSmallestMissingThreadNum();
+      }
       return createThreadWithNumber(
           threadingState,
           id,

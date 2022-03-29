@@ -47,6 +47,7 @@ public class LocationsState
     implements AbstractStateWithLocation, ThreadInfoProvider, AbstractQueryableState, Partitionable,
     Serializable {
 
+  private static final long serialVersionUID = 1L;
   private MultiThreadState locations;
 
   /** Here, we do not provide the backward analysis state. */

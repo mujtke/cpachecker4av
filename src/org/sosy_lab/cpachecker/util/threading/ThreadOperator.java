@@ -23,6 +23,7 @@ import static com.google.common.collect.FluentIterable.from;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,6 +39,7 @@ import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdgeType;
 import org.sosy_lab.cpachecker.cfa.model.CFANode;
+import org.sosy_lab.cpachecker.cfa.postprocessing.global.CFACloner;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.exceptions.CPATransferException;
 import org.sosy_lab.cpachecker.exceptions.UnrecognizedCodeException;
@@ -50,6 +52,7 @@ public class ThreadOperator {
   private final int maxNumberOfThreads;
   private final boolean useClonedFunctions;
   private final boolean useAllPossibleClones;
+  private final boolean useIncClonedFunc;
   private final String mainThreadId;
   private CFA cfa;
 
@@ -68,6 +71,7 @@ public class ThreadOperator {
       int pMaxNumberOfThreads,
       boolean pUseClonedFunctions,
       boolean pUseAllPossibleClones,
+      boolean pUseIncClonedFunc,
       String pMainThreadId,
       CFA pCfa) {
     forConcurrent = pForConcurrent;
@@ -75,6 +79,7 @@ public class ThreadOperator {
     maxNumberOfThreads = pMaxNumberOfThreads;
     useClonedFunctions = pUseClonedFunctions;
     useAllPossibleClones = pUseAllPossibleClones;
+    useIncClonedFunc = pUseIncClonedFunc;
     mainThreadId = pMainThreadId;
     cfa = pCfa;
   }
@@ -196,9 +201,11 @@ public class ThreadOperator {
         }
       }
     } else {
-      int num = MIN_THREAD_NUM;
-      while (usedFuncNumbers.contains(num)) {
-        ++num;
+      int num = 0;
+      if (useIncClonedFunc) {
+        num = getNewThreadNum(pState, pThreadFunc);
+      } else {
+        num = getSmallestMissingThreadNum(usedFuncNumbers);
       }
       if (useClonedFunctions) {
         pThreadFunc = pThreadFunc + SEPARATOR + num;
@@ -208,6 +215,32 @@ public class ThreadOperator {
 
     throw new CPATransferException(
         "could not determine the entry location of function '" + pThreadFunc + "' at" + pState);
+  }
+
+  private int getNewThreadNum(final MultiThreadState pState, String pFuncName) {
+    Map<String, Integer> thrdNumMap = new HashMap<>();
+    for (SingleThreadState ts : pState.getThreadStates()) {
+      String[] funcInfo = ts.getLocation().getFunctionName().split(CFACloner.SEPARATOR);
+      if (!thrdNumMap.containsKey(funcInfo[0])) {
+        thrdNumMap.put(funcInfo[0], 1);
+      } else {
+        thrdNumMap.put(funcInfo[0], thrdNumMap.get(funcInfo[0]) + 1);
+      }
+    }
+
+    if (thrdNumMap.containsKey(pFuncName)) {
+      return thrdNumMap.get(pFuncName) + 1;
+    } else {
+      return 1;
+    }
+  }
+
+  private int getSmallestMissingThreadNum(ImmutableList<Integer> pUsedFuncNumbers) {
+    int num = MIN_THREAD_NUM;
+    while (pUsedFuncNumbers.contains(num)) {
+      ++num;
+    }
+    return num;
   }
 
   private String createNewThreadIdWithNumber(final MultiThreadState pState, String pThreadVar)

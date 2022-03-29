@@ -82,6 +82,12 @@ public class LocationsTransferRelation implements TransferRelation {
     secure = true)
   private boolean useAllPossibleClones = false;
 
+  @Option(
+    secure = true,
+    description = "use increased number for each newly created same thread."
+        + "When this option is enabled, we need not to clone a thread function many times if "
+        + "every thread function is only used once (i.e., cfa.cfaCloner.numberOfCopies can be set to 1).")
+  private boolean useIncClonedFunc = false;
 
   private CFA cfa;
   private final String mainThreadId;
@@ -101,6 +107,7 @@ public class LocationsTransferRelation implements TransferRelation {
             maxNumberOfThreads,
             useClonedFunctions,
             useAllPossibleClones,
+            useIncClonedFunc,
             mainThreadId,
             cfa);
   }

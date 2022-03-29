@@ -18,7 +18,9 @@ import static org.sosy_lab.cpachecker.cpa.threading.ThreadingTransferRelation.is
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -33,6 +35,7 @@ import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdgeType;
 import org.sosy_lab.cpachecker.cfa.model.CFANode;
 import org.sosy_lab.cpachecker.cfa.model.FunctionCallEdge;
+import org.sosy_lab.cpachecker.cfa.postprocessing.global.CFACloner;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractQueryableState;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractStateWithLocations;
@@ -157,6 +160,30 @@ public class ThreadingState implements AbstractState, AbstractStateWithLocations
     }
     Preconditions.checkState(result.size() == threads.size());
     return result;
+  }
+
+  int getNewThreadNum(String pFuncName) {
+    Map<String, Integer> thrdNumMap = new HashMap<>();
+    for (ThreadState ts : threads.values()) {
+      AbstractState locs = ts.getLocation();
+      if (locs instanceof LocationState) {
+        String[] funcInfo =
+            ((LocationState) locs).getLocationNode().getFunctionName().split(CFACloner.SEPARATOR);
+        if (!thrdNumMap.containsKey(funcInfo[0])) {
+          thrdNumMap.put(funcInfo[0], 1);
+        } else {
+          thrdNumMap.put(funcInfo[0], thrdNumMap.get(funcInfo[0]) + 1);
+        }
+      } else {
+        return getSmallestMissingThreadNum();
+      }
+    }
+
+    if (thrdNumMap.containsKey(pFuncName)) {
+      return thrdNumMap.get(pFuncName) + 1;
+    } else {
+      return 1;
+    }
   }
 
   int getSmallestMissingThreadNum() {

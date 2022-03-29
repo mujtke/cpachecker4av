@@ -68,7 +68,8 @@ public class CPDPORPrecisionAdjustment implements PrecisionAdjustment {
       ConditionalDepGraph pCondDepGraph,
       ICComputer pIcComputer,
       CPDPORStatistics pStatistics) {
-    condDepGraph = checkNotNull(pCondDepGraph);
+    condDepGraph =
+        checkNotNull(pCondDepGraph, "Please enable the option: utils.edgeinfo.buildDepGraph!");
     nExploredChildCache = new HashMap<>();
     icComputer = pIcComputer;
     statistics = pStatistics;
