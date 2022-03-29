@@ -69,7 +69,9 @@ public class EdgeInfo implements StatisticsProvider {
 
   @Override
   public void collectStatistics(Collection<Statistics> pStatsCollection) {
-    pStatsCollection.add(builder.getCondDepGraphBuildStatistics());
+    if (buildDepGraph) {
+      pStatsCollection.add(builder.getCondDepGraphBuildStatistics());
+    }
   }
 
 }
