@@ -88,6 +88,8 @@ import org.sosy_lab.cpachecker.util.dependence.DGNode;
 
 public class EdgeSharedVarAccessExtractor {
 
+  private static final String noneDetFunction = "__VERIFIER_nondet_";
+
   private static Function<Set<Var>, Set<Var>> sharedVarAccessFilter =
       ss -> from(ss).filter(s -> s.isGlobal()).toSet();
   private static Pair<Set<Var>, Set<Var>> emptyRWVarSet = Pair.of(Set.of(), Set.of());
@@ -153,7 +155,14 @@ public class EdgeSharedVarAccessExtractor {
       Set<Var> gRVars = sharedVarAccessFilter.apply(extract(pExpression).getFirst());
       return gRVars.isEmpty()
           ? null
-          : new EdgeVtx(pAssumeEdge, List.of(pAssumeEdge), gRVars, Set.of(), true, 1);
+          : new EdgeVtx(
+              pAssumeEdge,
+              List.of(pAssumeEdge),
+              gRVars,
+              Set.of(),
+              true,
+              pExpression.toString().contains(noneDetFunction),
+              1);
     }
 
     throw new AssertionError(
@@ -180,13 +189,27 @@ public class EdgeSharedVarAccessExtractor {
         if (specialBlockFuncPairs.values().contains(funcName)
             || specialBlockFuncPairs.keySet().contains(funcName)
             || funcName.startsWith(specialSelfBlockFunc)) {
-          return new EdgeVtx(pStmtEdge, List.of(), gRVars, Set.of(), true, 1);
+          return new EdgeVtx(
+              pStmtEdge,
+              List.of(),
+              gRVars,
+              Set.of(),
+              true,
+              pStmtEdge.toString().contains(noneDetFunction),
+              1);
         }
       }
 
       return (gRVars.isEmpty() && gWVars.isEmpty())
           ? null
-          : new EdgeVtx(pStmtEdge, List.of(pStmtEdge), gRVars, gWVars, true, 1);
+          : new EdgeVtx(
+              pStmtEdge,
+              List.of(pStmtEdge),
+              gRVars,
+              gWVars,
+              true,
+              pStmtEdge.toString().contains(noneDetFunction),
+              1);
     }
 
     throw new AssertionError(
@@ -200,7 +223,14 @@ public class EdgeSharedVarAccessExtractor {
           gWVars = sharedVarAccessFilter.apply(vars.getSecond());
       return (gRVars.isEmpty() && gWVars.isEmpty())
           ? null
-          : new EdgeVtx(pDeclEdge, List.of(pDeclEdge), gRVars, gWVars, true, 1);
+          : new EdgeVtx(
+              pDeclEdge,
+              List.of(pDeclEdge),
+              gRVars,
+              gWVars,
+              true,
+              pDeclEdge.toString().contains(noneDetFunction),
+              1);
     }
 
     throw new AssertionError(
@@ -216,7 +246,14 @@ public class EdgeSharedVarAccessExtractor {
         Set<Var> gRVars = sharedVarAccessFilter.apply(extract(retStat.get()).getFirst());
         return gRVars.isEmpty()
             ? null
-            : new EdgeVtx(pRetEdge, List.of(pRetEdge), gRVars, Set.of(), true, 1);
+            : new EdgeVtx(
+                pRetEdge,
+                List.of(pRetEdge),
+                gRVars,
+                Set.of(),
+                true,
+                pRetEdge.toString().contains(noneDetFunction),
+                1);
       }
 
       return null;
@@ -249,11 +286,25 @@ public class EdgeSharedVarAccessExtractor {
       if (specialBlockFuncPairs.values().contains(pFunctionName)
           || specialBlockFuncPairs.keySet().contains(pFunctionName)
           || pFunctionName.startsWith(specialSelfBlockFunc)) {
-        return new EdgeVtx(pFunCallEdge, List.of(pFunCallEdge), gRVars, Set.of(), true, 1);
+        return new EdgeVtx(
+            pFunCallEdge,
+            List.of(pFunCallEdge),
+            gRVars,
+            Set.of(),
+            true,
+            pFunCallEdge.toString().contains(noneDetFunction),
+            1);
       } else {
         return gRVars.isEmpty()
             ? null
-            : new EdgeVtx(pFunCallEdge, List.of(pFunCallEdge), gRVars, Set.of(), true, 1);
+            : new EdgeVtx(
+                pFunCallEdge,
+                List.of(pFunCallEdge),
+                gRVars,
+                Set.of(),
+                true,
+                pFunCallEdge.toString().contains(noneDetFunction),
+                1);
       }
     }
 
@@ -273,7 +324,14 @@ public class EdgeSharedVarAccessExtractor {
         Set<Var> gRVars = sharedVarAccessFilter.apply(extract(lhsExpr).getFirst());
         return gRVars.isEmpty()
             ? null
-            : new EdgeVtx(pFunRetEdge, List.of(pFunRetEdge), Set.of(), gRVars, true, 1);
+            : new EdgeVtx(
+                pFunRetEdge,
+                List.of(pFunRetEdge),
+                Set.of(),
+                gRVars,
+                true,
+                pFunRetEdge.toString().contains(noneDetFunction),
+                1);
       }
 
       return null;
@@ -406,11 +464,27 @@ public class EdgeSharedVarAccessExtractor {
             || (ast instanceof CFunctionCallExpression));
 
     if (ast instanceof CFunctionCallAssignmentStatement) {
-      // note: only the parameters are need to be processed (read access variables), and notice
-      // that, the 'assignment' operation is not performed when the function called immediately, it
+      // note: only the parameters are need to be processed (read access variables).
+      // NOTICE THAT:
+      // 1) the 'assignment' operation is not performed when the function called immediately, it
       // will be process when the result is returned (i.e., processed in CReturnStatement).
-      return extractFunctionCall(
-          ((CFunctionCallAssignmentStatement) ast).getRightHandSide()); // CFunctionCallExpression
+      // for the case: x = func(a, y);
+      // 2) the 'assignment' operation is performed immediately for "__VERIFIER_nondet_xxx()"
+      // function.
+      // for the case: x = __VERIFIER_nondet_int();
+      String funcCallAsgFuncName =
+          ((CFunctionCallAssignmentStatement) ast).getFunctionCallExpression()
+              .getFunctionNameExpression()
+              .toString();
+      if (funcCallAsgFuncName.startsWith(noneDetFunction)) {
+        Pair<Set<Var>, Set<Var>> lhsExpVars =
+            extract(((CFunctionCallAssignmentStatement) ast).getLeftHandSide()),
+            rhsExpVars = extract(((CFunctionCallAssignmentStatement) ast).getRightHandSide());
+        return Pair
+            .of(Sets.union(rhsExpVars.getFirst(), rhsExpVars.getSecond()), lhsExpVars.getFirst());
+      } else {
+        return extractFunctionCall(((CFunctionCallAssignmentStatement) ast).getRightHandSide()); // CFunctionCallExpression
+      }
     } else if (ast instanceof CFunctionCallStatement) {
       // note: only the parameters are need to be processed (read access variables)
       return extractFunctionCall(

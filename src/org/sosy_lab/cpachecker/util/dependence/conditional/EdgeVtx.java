@@ -40,6 +40,7 @@ public class EdgeVtx implements DGNode {
   private final Set<Var> gReadVars;
   private final Set<Var> gWriteVars;
   private final boolean simpleEdgeVtx;
+  private final boolean containNonDetVar;
   private int blockEdgeNumber;
 
   public EdgeVtx(
@@ -48,6 +49,7 @@ public class EdgeVtx implements DGNode {
       final Set<Var> pGRVars,
       final Set<Var> pGWVars,
       boolean pSimpleEdgeVtx,
+      boolean pContainNonDetVar,
       int pBlockEdgeNumber) {
     assert pGRVars != null && pGWVars != null;
 
@@ -56,6 +58,7 @@ public class EdgeVtx implements DGNode {
     gReadVars = Set.copyOf(pGRVars);
     gWriteVars = Set.copyOf(pGWVars);
     simpleEdgeVtx = pSimpleEdgeVtx;
+    containNonDetVar = pContainNonDetVar;
     blockEdgeNumber = pBlockEdgeNumber;
   }
 
@@ -67,6 +70,7 @@ public class EdgeVtx implements DGNode {
     gReadVars = Set.copyOf(pVtxOther.gReadVars);
     gWriteVars = Set.copyOf(pVtxOther.gWriteVars);
     simpleEdgeVtx = pVtxOther.simpleEdgeVtx;
+    containNonDetVar = pVtxOther.containNonDetVar;
     blockEdgeNumber = pVtxOther.blockEdgeNumber;
   }
 
@@ -101,6 +105,10 @@ public class EdgeVtx implements DGNode {
     return simpleEdgeVtx;
   }
 
+  public boolean isContainNonDetVar() {
+    return containNonDetVar;
+  }
+
   public boolean isPureWriteVtx() {
     return gReadVars.isEmpty() && !gWriteVars.isEmpty();
   }
@@ -123,7 +131,13 @@ public class EdgeVtx implements DGNode {
     Set<Var> tmpGRVars = Sets.union(gReadVars, pOther.gReadVars),
         tmpGWVars = Sets.union(gWriteVars, pOther.gWriteVars);
     return new EdgeVtx(
-        blockStartEdge, blockEdges, tmpGRVars, tmpGWVars, simpleEdgeVtx, blockEdgeNumber);
+        blockStartEdge,
+        blockEdges,
+        tmpGRVars,
+        tmpGWVars,
+        simpleEdgeVtx,
+        (this.containNonDetVar || pOther.containNonDetVar),
+        blockEdgeNumber);
   }
 
   /**

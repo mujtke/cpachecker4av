@@ -54,6 +54,7 @@ import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.CFA;
 import org.sosy_lab.cpachecker.cfa.ast.AExpression;
 import org.sosy_lab.cpachecker.cfa.ast.AFunctionCall;
+import org.sosy_lab.cpachecker.cfa.ast.AFunctionCallAssignmentStatement;
 import org.sosy_lab.cpachecker.cfa.ast.AFunctionCallStatement;
 import org.sosy_lab.cpachecker.cfa.ast.AIdExpression;
 import org.sosy_lab.cpachecker.cfa.ast.AStatement;
@@ -159,6 +160,7 @@ public class ConditionalDepGraphBuilder {
   private boolean buildForNoneCloneThread = false;
 
   private static final String specialSelfBlockFunction = "__VERIFIER_atomic_";
+  private static final String noneDetFunction = "__VERIFIER_nondet_";
   private static final String cloneFunction = "__cloned_function__";
   // This set is used to collect the function names of all created threads.
   // It's unnecessary to create edges for inner transitions pairs of a thread.
@@ -402,6 +404,12 @@ public class ConditionalDepGraphBuilder {
                     .getFunctionNameExpression()
                     .toString();
             return funcName;
+          } else if (stmt instanceof AFunctionCallAssignmentStatement) {
+            String funcName =
+                ((AFunctionCallAssignmentStatement) stmt).getFunctionCallExpression()
+                    .getFunctionNameExpression()
+                    .toString();
+            return funcName;
           }
           return null;
       }
@@ -455,6 +463,7 @@ public class ConditionalDepGraphBuilder {
                       selfBlockParamDGNode.getgReadVars(),
                       selfBlockParamDGNode.getgWriteVars(),
                       selfBlockParamDGNode.isSimpleEdgeVtx(),
+                      selfBlockParamDGNode.isContainNonDetVar(),
                       selfBlockParamDGNode.getBlockEdgeNumber())
                   : null;
           selfBlockContentDGNode =
@@ -465,6 +474,7 @@ public class ConditionalDepGraphBuilder {
                       selfBlockContentDGNode.getgReadVars(),
                       selfBlockContentDGNode.getgWriteVars(),
                       selfBlockContentDGNode.isSimpleEdgeVtx(),
+                      selfBlockContentDGNode.isContainNonDetVar(),
                       selfBlockContentDGNode.getBlockEdgeNumber())
                   : null;
           // get the return node of this self-block function.
@@ -479,6 +489,14 @@ public class ConditionalDepGraphBuilder {
                       : selfBlockContentDGNode)
                   : selfBlockParamDGNode;
           return resDGNode;
+        } else if (pEdgeFunName.startsWith(noneDetFunction)) {
+          // process non-determined function call.
+          EdgeVtx nonDetDGNode = (EdgeVtx) pExtractor.extractESVAInfo(pEdge);
+
+          CFANode nonDetEdgeSucNode = pEdge.getSuccessor();
+          pWaitlist.add(nonDetEdgeSucNode);
+          pVisitedNodes.add(pEdgePreNode);
+          return nonDetDGNode;
         } else {
           // process no-block inner function call (leaving summary edge)
           FunctionSummaryEdge leavingSummaryEdge = pEdgePreNode.getLeavingSummaryEdge();
@@ -615,6 +633,7 @@ public class ConditionalDepGraphBuilder {
               resDepNode.getgReadVars(),
               resDepNode.getgWriteVars(),
               true,
+              false,
               processedEdgeNumber);
     } else {
       resDepNode =
@@ -623,6 +642,7 @@ public class ConditionalDepGraphBuilder {
               blockEdges,
               resDepNode.getgReadVars(),
               resDepNode.getgWriteVars(),
+              false,
               false,
               processedEdgeNumber);
     }
@@ -677,7 +697,8 @@ public class ConditionalDepGraphBuilder {
 
       // build the DGNode of this function.
       CFAEdge initEdge = pFunEntry.getEnteringEdge(0);
-      EdgeVtx resDGNode = new EdgeVtx(initEdge, List.of(initEdge), Set.of(), Set.of(), false, 0);
+      EdgeVtx resDGNode =
+          new EdgeVtx(initEdge, List.of(initEdge), Set.of(), Set.of(), false, false, 0);
       int processedEdgeNumber = 0;
 
       waitlist.add(pFunEntry);

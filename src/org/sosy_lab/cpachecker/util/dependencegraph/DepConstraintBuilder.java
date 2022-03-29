@@ -494,6 +494,11 @@ public class DepConstraintBuilder {
       // for simple DGNode which contains only one potential conflict variable (can special
       // process).
       if (confVarSet.size() == 1) {
+        // check whether the two nodes contains non-determined variables.
+        if (pNode1.isContainNonDetVar() || pNode2.isContainNonDetVar()) {
+          return CondDepConstraints.unCondDepConstraint;
+        }
+
         // <assume, assign1, assign2>
         // if there is no assume edge, then the first element is null;
         // if there is an assume edge (notice: there are at most one assume edge), then the third
