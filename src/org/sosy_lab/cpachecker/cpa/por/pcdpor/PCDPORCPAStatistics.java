@@ -6,7 +6,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sosy_lab.cpachecker.cpa.por.cpdpor;
+package org.sosy_lab.cpachecker.cpa.por.pcdpor;
 
 import java.io.PrintStream;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -14,27 +14,27 @@ import org.sosy_lab.cpachecker.core.CPAcheckerResult.Result;
 import org.sosy_lab.cpachecker.core.interfaces.Statistics;
 import org.sosy_lab.cpachecker.core.reachedset.UnmodifiableReachedSet;
 
-public class CPDPORCPAStatistics implements Statistics {
+public class PCDPORCPAStatistics implements Statistics {
 
-  private CPDPORStatistics statistics;
+  private PCDPORStatistics statistics;
 
-  public CPDPORCPAStatistics(CPDPORStatistics pStatistics) {
+  public PCDPORCPAStatistics(PCDPORStatistics pStatistics) {
     statistics = pStatistics;
   }
 
   @Override
   public void printStatistics(PrintStream pOut, Result pResult, UnmodifiableReachedSet pReached) {
     pOut.println(
-        "CPDPOR dependency computation overhead: ("
-            + statistics.cpdporComputeDepTimer.getConsumedTime()
+        "PCDPOR dependency computation overhead: ("
+            + statistics.pcdporComputeDepTimer.getConsumedTime()
             + ", "
             + statistics.depComputeTimes.getUpdateCount()
             + ")");
-    pOut.println("CPDPOR constraint entailment information: ");
+    pOut.println("PCDPOR constraint entailment information: ");
     pOut.println("   Entail:        " + statistics.depConstraintsEntailTimes.getUpdateCount());
     pOut.println("   Not Entail:    " + statistics.depConstraintsNotEntailTimes.getUpdateCount());
     pOut.println("   Other Cases:   " + statistics.depConstraintsOtherCaseTimes.getUpdateCount());
-    pOut.println("CPDPOR check skip information: ");
+    pOut.println("PCDPOR check skip information: ");
     pOut.println(
         "   Check Times:                                       "
             + statistics.checkSkipTimes.getUpdateCount());
@@ -53,7 +53,7 @@ public class CPDPORCPAStatistics implements Statistics {
     pOut.println(
         "   Other Cases (loop start or thread creation) Times: "
             + statistics.checkSkipOtherCaseTimes.getUpdateCount());
-    pOut.println("CPDPOR avoid exploration information: ");
+    pOut.println("PCDPOR avoid exploration information: ");
     pOut.println(
         "   Avoid Exploration Total Times:             "
             + statistics.avoidExplorationTimes.getUpdateCount());
@@ -64,7 +64,7 @@ public class CPDPORCPAStatistics implements Statistics {
 
   @Override
   public @Nullable String getName() {
-    return "CPDPORCPA";
+    return "PCDPORCPA";
   }
 
 }

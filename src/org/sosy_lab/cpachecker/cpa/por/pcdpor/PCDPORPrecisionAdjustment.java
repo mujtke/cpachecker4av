@@ -6,7 +6,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sosy_lab.cpachecker.cpa.por.cpdpor;
+package org.sosy_lab.cpachecker.cpa.por.pcdpor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.FluentIterable.from;
@@ -38,36 +38,36 @@ import org.sosy_lab.cpachecker.util.dependence.DGNode;
 import org.sosy_lab.cpachecker.util.dependence.conditional.CondDepConstraints;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
 
-public class CPDPORPrecisionAdjustment implements PrecisionAdjustment {
+public class PCDPORPrecisionAdjustment implements PrecisionAdjustment {
 
   private final ConditionalDepGraph condDepGraph;
   private final Map<Integer, Integer> nExploredChildCache;
   private final ICComputer icComputer;
-  private final CPDPORStatistics statistics;
+  private final PCDPORStatistics statistics;
 
   private static final Function<ARGState, Set<ARGState>> gvaEdgeFilter =
       (s) -> from(s.getChildren()).filter(
-          cs -> AbstractStates.extractStateByType(cs, CPDPORState.class)
+          cs -> AbstractStates.extractStateByType(cs, PCDPORState.class)
               .getTransferInEdgeType()
               .equals(EdgeType.GVAEdge))
           .toSet();
   private static final Function<ARGState, Set<ARGState>> nEdgeFilter =
       (s) -> from(s.getChildren()).filter(
-          cs -> AbstractStates.extractStateByType(cs, CPDPORState.class)
+          cs -> AbstractStates.extractStateByType(cs, PCDPORState.class)
               .getTransferInEdgeType()
               .equals(EdgeType.NEdge))
           .toSet();
   private static final Function<ARGState, Set<ARGState>> naEdgeFilter =
       (s) -> from(s.getChildren()).filter(
-          cs -> AbstractStates.extractStateByType(cs, CPDPORState.class)
+          cs -> AbstractStates.extractStateByType(cs, PCDPORState.class)
               .getTransferInEdgeType()
               .equals(EdgeType.NAEdge))
           .toSet();
 
-  public CPDPORPrecisionAdjustment(
+  public PCDPORPrecisionAdjustment(
       ConditionalDepGraph pCondDepGraph,
       ICComputer pIcComputer,
-      CPDPORStatistics pStatistics) {
+      PCDPORStatistics pStatistics) {
     condDepGraph =
         checkNotNull(pCondDepGraph, "Please enable the option: utils.edgeinfo.buildDepGraph!");
     nExploredChildCache = new HashMap<>();
@@ -92,9 +92,9 @@ public class CPDPORPrecisionAdjustment implements PrecisionAdjustment {
         nExploredChildCache.clear();
       }
 
-      CPDPORState cpdporCurState =
-          AbstractStates.extractStateByType(argCurState, CPDPORState.class),
-          cpdporParState = AbstractStates.extractStateByType(argParState, CPDPORState.class);
+      PCDPORState cpdporCurState =
+          AbstractStates.extractStateByType(argCurState, PCDPORState.class),
+          cpdporParState = AbstractStates.extractStateByType(argParState, PCDPORState.class);
       int argParStateId = argParState.getStateId();
 
       // get all the type of successors of the argParState.
@@ -150,21 +150,21 @@ public class CPDPORPrecisionAdjustment implements PrecisionAdjustment {
         // firstly, we need to update all the sleep set of all gvaSuccessors.
         if (!cpdporParState.isUpdated()) {
           if (gvaSuccessors.size() > 1) {
-            ImmutableList<CPDPORState> updateGVASuccessors =
+            ImmutableList<PCDPORState> updateGVASuccessors =
                 from(gvaSuccessors)
-                    .transform(s -> AbstractStates.extractStateByType(s, CPDPORState.class))
+                    .transform(s -> AbstractStates.extractStateByType(s, PCDPORState.class))
                     .toList();
             // obtain parent computation state to determine the dependency of successor transitions.
             AbstractState parComputeState =
                 AbstractStates.extractStateByType(argParState, BDDState.class);
 
             for (int i = 0; i < updateGVASuccessors.size() - 1; ++i) {
-              CPDPORState cpdporAState = updateGVASuccessors.get(i);
+              PCDPORState cpdporAState = updateGVASuccessors.get(i);
               CFAEdge cpdporAStateEdge = cpdporAState.getCurrentTransferInEdge();
               int cpdporAStateThrdId = cpdporAState.getCurrentTransferInEdgeThreadId();
 
               for (int j = i + 1; j < updateGVASuccessors.size(); ++j) {
-                CPDPORState cpdporBState = updateGVASuccessors.get(j);
+                PCDPORState cpdporBState = updateGVASuccessors.get(j);
                 CFAEdge cpdporBStateEdge = cpdporBState.getCurrentTransferInEdge();
 
                 // determine whether the transfer-info of A-state is independent with the

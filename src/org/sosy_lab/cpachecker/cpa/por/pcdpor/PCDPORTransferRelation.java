@@ -6,7 +6,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sosy_lab.cpachecker.cpa.por.cpdpor;
+package org.sosy_lab.cpachecker.cpa.por.pcdpor;
 
 import static com.google.common.collect.FluentIterable.from;
 
@@ -42,7 +42,7 @@ import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
 import org.sosy_lab.cpachecker.util.globalinfo.GlobalInfo;
 
 @Options(prefix = "cpa.por.cpdpor")
-public class CPDPORTransferRelation extends SingleEdgeTransferRelation {
+public class PCDPORTransferRelation extends SingleEdgeTransferRelation {
 
   @Option(
     secure = true,
@@ -52,7 +52,7 @@ public class CPDPORTransferRelation extends SingleEdgeTransferRelation {
   private final LocationsCPA locationsCPA;
   private final ConditionalDepGraph condDepGraph;
 
-  public CPDPORTransferRelation(Configuration pConfig, LogManager pLogger, CFA pCfa)
+  public PCDPORTransferRelation(Configuration pConfig, LogManager pLogger, CFA pCfa)
       throws InvalidConfigurationException {
     pConfig.inject(this);
     locationsCPA = LocationsCPA.create(pConfig, pLogger, pCfa);
@@ -64,7 +64,7 @@ public class CPDPORTransferRelation extends SingleEdgeTransferRelation {
   public Collection<? extends AbstractState>
       getAbstractSuccessorsForEdge(AbstractState pState, Precision pPrecision, CFAEdge pCfaEdge)
           throws CPATransferException, InterruptedException {
-    CPDPORState curState = (CPDPORState) pState;
+    PCDPORState curState = (PCDPORState) pState;
 
     // compute new locations.
     Collection<? extends AbstractState> newStates =
@@ -91,7 +91,7 @@ public class CPDPORTransferRelation extends SingleEdgeTransferRelation {
       // precision adjust part.
 
       return ImmutableSet.of(
-          new CPDPORState(
+          new PCDPORState(
               new PeepholeState(
                   newThreadCounter,
                   pCfaEdge,

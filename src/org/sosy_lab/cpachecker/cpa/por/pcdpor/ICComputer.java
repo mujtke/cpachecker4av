@@ -6,7 +6,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sosy_lab.cpachecker.cpa.por.cpdpor;
+package org.sosy_lab.cpachecker.cpa.por.pcdpor;
 
 import org.sosy_lab.cpachecker.cfa.CFA;
 import org.sosy_lab.cpachecker.cfa.ast.c.CExpression;
@@ -25,9 +25,9 @@ public class ICComputer {
 
   private final PredicateManager predmgr;
   private final MachineModel machineModel;
-  private final CPDPORStatistics statistics;
+  private final PCDPORStatistics statistics;
 
-  public ICComputer(CFA pCfa, PredicateManager pPredmgr, CPDPORStatistics pStatistics) {
+  public ICComputer(CFA pCfa, PredicateManager pPredmgr, PCDPORStatistics pStatistics) {
     assert pCfa.getVarClassification().isEmpty();
 
     predmgr = pPredmgr;
@@ -36,7 +36,7 @@ public class ICComputer {
   }
 
   public boolean computeDep(CondDepConstraints pICs, BDDState pState) {
-    statistics.cpdporComputeDepTimer.start();
+    statistics.pcdporComputeDepTimer.start();
     statistics.depComputeTimes.inc();
     assert (!pICs.isUnCondDep());
     // System.out.println("compute ic.");
@@ -54,12 +54,12 @@ public class ICComputer {
       try {
         if (rmgr.entails(pState.getRegion(), evaluated)) {
           // System.out.println("compute result: entailed -> conditional dependent");
-          statistics.cpdporComputeDepTimer.stop();
+          statistics.pcdporComputeDepTimer.stop();
           statistics.depConstraintsEntailTimes.inc();
           return false;
         } else {
           // System.out.println("compute result: not entailed-> conditional dependent");
-          statistics.cpdporComputeDepTimer.stop();
+          statistics.pcdporComputeDepTimer.stop();
           statistics.depConstraintsNotEntailTimes.inc();
           return true;
         }
@@ -70,12 +70,12 @@ public class ICComputer {
         // TODO Auto-generated catch block
         e.printStackTrace();
       }
-      statistics.cpdporComputeDepTimer.stop();
+      statistics.pcdporComputeDepTimer.stop();
       statistics.depConstraintsOtherCaseTimes.inc();
       return true;
 
     } else {
-      statistics.cpdporComputeDepTimer.stop();
+      statistics.pcdporComputeDepTimer.stop();
       statistics.depConstraintsOtherCaseTimes.inc();
       return true;
     }

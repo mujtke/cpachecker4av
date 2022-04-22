@@ -6,7 +6,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sosy_lab.cpachecker.cpa.por.cpdpor;
+package org.sosy_lab.cpachecker.cpa.por.pcdpor;
 
 import java.util.Collection;
 import org.sosy_lab.common.configuration.Configuration;
@@ -32,15 +32,15 @@ import org.sosy_lab.cpachecker.util.predicates.regions.NamedRegionManager;
 import org.sosy_lab.cpachecker.util.predicates.regions.RegionManager;
 
 @Options(prefix = "cpa.por.cpdpor")
-public class CPDPORCPA extends AbstractCPA
+public class PCDPORCPA extends AbstractCPA
     implements ConfigurableProgramAnalysis, StatisticsProvider {
 
   private final CFA cfa;
   private final Configuration config;
   private final NamedRegionManager manager;
 
-  private final CPDPORStatistics statistics;
-  private final CPDPORCPAStatistics stats;
+  private final PCDPORStatistics statistics;
+  private final PCDPORCPAStatistics stats;
 
   @Option(
     secure = true,
@@ -50,12 +50,12 @@ public class CPDPORCPA extends AbstractCPA
   private boolean followFunctionCalls = true;
 
   public static CPAFactory factory() {
-    return AutomaticCPAFactory.forType(CPDPORCPA.class);
+    return AutomaticCPAFactory.forType(PCDPORCPA.class);
   }
 
-  public CPDPORCPA(Configuration pConfig, LogManager pLogger, CFA pCfa)
+  public PCDPORCPA(Configuration pConfig, LogManager pLogger, CFA pCfa)
       throws InvalidConfigurationException {
-    super("sep", "sep", new CPDPORTransferRelation(pConfig, pLogger, pCfa));
+    super("sep", "sep", new PCDPORTransferRelation(pConfig, pLogger, pCfa));
 
     pConfig.inject(this);
     cfa = pCfa;
@@ -64,21 +64,21 @@ public class CPDPORCPA extends AbstractCPA
     manager = new NamedRegionManager(rmgr);
     config = pConfig;
 
-    statistics = new CPDPORStatistics();
-    stats = new CPDPORCPAStatistics(statistics);
+    statistics = new PCDPORStatistics();
+    stats = new PCDPORCPAStatistics(statistics);
   }
 
   @Override
   public AbstractState getInitialState(CFANode pNode, StateSpacePartition pPartition)
       throws InterruptedException {
-    return CPDPORState
+    return PCDPORState
         .getInitialInstance(pNode, cfa.getMainFunction().getFunctionName(), followFunctionCalls);
   }
 
   @Override
   public PrecisionAdjustment getPrecisionAdjustment() {
     try {
-      return new CPDPORPrecisionAdjustment(
+      return new PCDPORPrecisionAdjustment(
           GlobalInfo.getInstance().getEdgeInfo().getCondDepGraph(),
           new ICComputer(cfa, new PredicateManager(config, manager, cfa), statistics),
           statistics);

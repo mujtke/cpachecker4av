@@ -6,7 +6,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package org.sosy_lab.cpachecker.cpa.por.cpdpor;
+package org.sosy_lab.cpachecker.cpa.por.pcdpor;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -19,7 +19,7 @@ import org.sosy_lab.cpachecker.cpa.por.EdgeType;
 import org.sosy_lab.cpachecker.cpa.por.ppor.PeepholeState;
 import org.sosy_lab.cpachecker.util.Pair;
 
-public class CPDPORState implements AbstractState {
+public class PCDPORState implements AbstractState {
 
   private PeepholeState curState;
   private EdgeType transferInEdgeType;
@@ -27,17 +27,17 @@ public class CPDPORState implements AbstractState {
   private Set<Pair<Integer, Integer>> sleepSet;
   private boolean isUpdated;
 
-  public static CPDPORState
+  public static PCDPORState
       getInitialInstance(CFANode pInitNode, String pMainThreadId, boolean pIsFollowFunCalls) {
     assert pInitNode.getNumLeavingEdges() == 1;
 
     PeepholeState tmpCurState =
         PeepholeState.getInitialInstance(pInitNode, pMainThreadId, pIsFollowFunCalls);
 
-    return new CPDPORState(tmpCurState, EdgeType.NEdge, new HashSet<>(), false);
+    return new PCDPORState(tmpCurState, EdgeType.NEdge, new HashSet<>(), false);
   }
 
-  public CPDPORState(
+  public PCDPORState(
       PeepholeState pCurState,
       EdgeType pTransferInEdgeType,
       Set<Pair<Integer, Integer>> pSleepSet,
@@ -63,8 +63,8 @@ public class CPDPORState implements AbstractState {
       return true;
     }
 
-    if (pObj != null && pObj instanceof CPDPORState) {
-      CPDPORState other = (CPDPORState) pObj;
+    if (pObj != null && pObj instanceof PCDPORState) {
+      PCDPORState other = (PCDPORState) pObj;
       if ((curState == null && other.curState == null)
           || (curState != null && other.curState != null && curState.equals(other.curState))) {
         if (transferInEdgeType.equals(other.transferInEdgeType)
