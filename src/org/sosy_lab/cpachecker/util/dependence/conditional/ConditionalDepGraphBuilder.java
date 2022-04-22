@@ -583,7 +583,7 @@ public class ConditionalDepGraphBuilder {
           EdgeVtx tmpDepNode = (EdgeVtx) pExtractor.extractESVAInfo(nextEdge);
           ++innerProcEdgeNumber;
           if (tmpDepNode != null) {
-            resDepNode = resDepNode.mergeGlobalRWVarsOnly(tmpDepNode);
+            resDepNode = (resDepNode == null) ? resDepNode : resDepNode.mergeGlobalRWVarsOnly(tmpDepNode);
           }
 
           blockEdges.add(nextEdge);
@@ -599,7 +599,8 @@ public class ConditionalDepGraphBuilder {
             // some function call have no leaving summary edge.
             EdgeVtx tmpDepNode = (EdgeVtx) pExtractor.extractESVAInfo(leavingSummaryEdge);
             if (tmpDepNode != null) {
-              resDepNode = resDepNode.mergeGlobalRWVarsOnly(tmpDepNode);
+              resDepNode =
+                  (resDepNode == null) ? resDepNode : resDepNode.mergeGlobalRWVarsOnly(tmpDepNode);
             }
 
             CFANode summarySucNode = leavingSummaryEdge.getSuccessor();
@@ -615,7 +616,8 @@ public class ConditionalDepGraphBuilder {
       EdgeVtx tmpDepNode = (EdgeVtx) pExtractor.extractESVAInfo(nextEdge);
       ++innerProcEdgeNumber;
       if (tmpDepNode != null) {
-        resDepNode = resDepNode.mergeGlobalRWVarsOnly(tmpDepNode);
+        resDepNode =
+            (resDepNode == null) ? resDepNode : resDepNode.mergeGlobalRWVarsOnly(tmpDepNode);
       }
       blockEdges.add(nextEdge);
       blockStack.push(Pair.of(nextEdgeSucNode, 0));
@@ -626,7 +628,7 @@ public class ConditionalDepGraphBuilder {
 
     // mark that this block is not a simple block.
     if (innerProcEdgeNumber == 2) {
-      resDepNode =
+      resDepNode = (resDepNode == null) ? null :
           new EdgeVtx(
               resDepNode.getBlockStartEdge(),
               blockEdges,
@@ -636,7 +638,7 @@ public class ConditionalDepGraphBuilder {
               false,
               processedEdgeNumber);
     } else {
-      resDepNode =
+      resDepNode = (resDepNode == null) ? null :
           new EdgeVtx(
               resDepNode.getBlockStartEdge(),
               blockEdges,
@@ -648,7 +650,8 @@ public class ConditionalDepGraphBuilder {
     }
 
     // empty block, we should not put it into the dependence graph.
-    if (resDepNode.getgReadVars().isEmpty() && resDepNode.getgWriteVars().isEmpty()) {
+    if (resDepNode == null
+        || (resDepNode.getgReadVars().isEmpty() && resDepNode.getgWriteVars().isEmpty())) {
       return null;
     }
 
