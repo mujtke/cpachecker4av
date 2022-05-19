@@ -29,6 +29,8 @@ public interface Property {
 
     DEADLOCK("G ! deadlock"),
 
+    DATARACE("G ! data-race"),
+
     TERMINATION("F end"),
     ;
 
