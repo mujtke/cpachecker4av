@@ -8,36 +8,23 @@
 
 package org.sosy_lab.cpachecker.cpa.por.pcdpor;
 
-import java.util.HashMap;
-import java.util.Map;
-import org.sosy_lab.common.ShutdownNotifier;
-import org.sosy_lab.common.configuration.Configuration;
-import org.sosy_lab.common.log.LogManager;
 import org.sosy_lab.cpachecker.cfa.ast.c.CExpression;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
-import org.sosy_lab.cpachecker.core.reachedset.ReachedSet;
 import org.sosy_lab.cpachecker.cpa.arg.ARGState;
 import org.sosy_lab.cpachecker.cpa.predicate.PredicateAbstractState;
 import org.sosy_lab.cpachecker.cpa.predicate.PredicateCPA;
 import org.sosy_lab.cpachecker.util.AbstractStates;
 import org.sosy_lab.cpachecker.util.Pair;
 import org.sosy_lab.cpachecker.util.dependence.conditional.CondDepConstraints;
-import org.sosy_lab.cpachecker.util.globalinfo.GlobalInfo;
 import org.sosy_lab.cpachecker.util.predicates.AbstractionManager;
-import org.sosy_lab.cpachecker.util.predicates.AbstractionPredicate;
 import org.sosy_lab.cpachecker.util.predicates.pathformula.PathFormula;
 import org.sosy_lab.cpachecker.util.predicates.pathformula.PathFormulaManager;
 import org.sosy_lab.cpachecker.util.predicates.regions.Region;
-import org.sosy_lab.cpachecker.util.predicates.regions.RegionCreator;
 import org.sosy_lab.cpachecker.util.predicates.smt.FormulaManagerView;
 import org.sosy_lab.cpachecker.util.predicates.smt.Solver;
-import org.sosy_lab.java_smt.api.BooleanFormulaManager;
 
 public class PredicateICComputer extends AbstractICComputer {
 
-  private final Configuration config;
-  private final LogManager logger;
-  private final ShutdownNotifier shutdownNotifier;
   private final PCDPORStatistics statistics;
 
   // PredicateICComputer environment.
@@ -46,23 +33,10 @@ public class PredicateICComputer extends AbstractICComputer {
   private FormulaManagerView fmgr;
   private PathFormulaManager pfmgr;
   private AbstractionManager amgr;
-  private BooleanFormulaManager bfmgr;
-  private RegionCreator rmgr;
-
-  // only used to get the precision from PredicateAbstractState.
-  private ReachedSet reached;
-
-  private Map<CExpression, AbstractionPredicate> ic2PredCache;
 
   public PredicateICComputer(
-      Configuration pConfig,
-      LogManager pLogger,
-      ShutdownNotifier pShutdownNotifier,
       PredicateCPA pCpa,
       PCDPORStatistics pStatistics) {
-    config = pConfig;
-    logger = pLogger;
-    shutdownNotifier = pShutdownNotifier;
     statistics = pStatistics;
 
     predCPA = pCpa;
@@ -70,11 +44,6 @@ public class PredicateICComputer extends AbstractICComputer {
     fmgr = solver.getFormulaManager();
     pfmgr = predCPA.getPathFormulaManager();
     amgr = predCPA.getAbstractionManager();
-    bfmgr = fmgr.getBooleanFormulaManager();
-    rmgr = amgr.getRegionCreator();
-
-    reached = GlobalInfo.getInstance().getReachedSet();
-    ic2PredCache = new HashMap<>();
   }
 
   @Override

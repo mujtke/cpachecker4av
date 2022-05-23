@@ -42,7 +42,7 @@ public class PCDPORPrecisionAdjustment implements PrecisionAdjustment {
 
   private final ConditionalDepGraph condDepGraph;
   private final Map<Integer, Integer> nExploredChildCache;
-  private final ICComputer icComputer;
+  private final AbstractICComputer icComputer;
   private final PCDPORStatistics statistics;
 
   private static final Function<ARGState, Set<ARGState>> gvaEdgeFilter =
@@ -66,7 +66,7 @@ public class PCDPORPrecisionAdjustment implements PrecisionAdjustment {
 
   public PCDPORPrecisionAdjustment(
       ConditionalDepGraph pCondDepGraph,
-      ICComputer pIcComputer,
+      AbstractICComputer pIcComputer,
       PCDPORStatistics pStatistics) {
     condDepGraph =
         checkNotNull(pCondDepGraph, "Please enable the option: utils.edgeinfo.buildDepGraph!");
@@ -155,8 +155,14 @@ public class PCDPORPrecisionAdjustment implements PrecisionAdjustment {
                     .transform(s -> AbstractStates.extractStateByType(s, PCDPORState.class))
                     .toList();
             // obtain parent computation state to determine the dependency of successor transitions.
-            AbstractState parComputeState =
-                AbstractStates.extractStateByType(argParState, BDDState.class);
+            AbstractState parComputeState = null;
+            if (icComputer instanceof BDDICComputer) {
+              parComputeState = AbstractStates.extractStateByType(argParState, BDDState.class);
+            } else if (icComputer instanceof PredicateICComputer) {
+              parComputeState = argParState;
+            } else {
+              throw new CPAException("Unsupported ICComputer: " + icComputer.getClass().toString());
+            }
 
             for (int i = 0; i < updateGVASuccessors.size() - 1; ++i) {
               PCDPORState cpdporAState = updateGVASuccessors.get(i);
@@ -169,7 +175,7 @@ public class PCDPORPrecisionAdjustment implements PrecisionAdjustment {
 
                 // determine whether the transfer-info of A-state is independent with the
                 // transfer-info of B-state.
-                if (canSkip(cpdporAStateEdge, cpdporBStateEdge, (BDDState) parComputeState)) {
+                if (canSkip(cpdporAStateEdge, cpdporBStateEdge, parComputeState)) {
                   // the transfer-info of A-state can avoid.
                   cpdporBState
                       .addThreadInfoSleep(Pair.of(cpdporAStateThrdId, cpdporAStateEdge.hashCode()));
@@ -199,7 +205,7 @@ public class PCDPORPrecisionAdjustment implements PrecisionAdjustment {
       }
 
     } else {
-      throw new AssertionError("CPDPOR need utilize the information of parent ARGState!");
+      throw new AssertionError("PC-DPOR need utilize the information of parent ARGState!");
     }
 
     return Optional.of(
@@ -207,7 +213,7 @@ public class PCDPORPrecisionAdjustment implements PrecisionAdjustment {
             .create(pState, pPrecision, PrecisionAdjustmentResult.Action.CONTINUE));
   }
 
-  private boolean canSkip(CFAEdge pCheckEdge, CFAEdge pCurEdge, BDDState pComputeState) {
+  private boolean canSkip(CFAEdge pCheckEdge, CFAEdge pCurEdge, AbstractState pComputeState) {
     statistics.checkSkipTimes.inc();
     DGNode depCheckNode = condDepGraph.getDGNode(pCheckEdge.hashCode()),
         depCurNode = condDepGraph.getDGNode(pCurEdge.hashCode());
