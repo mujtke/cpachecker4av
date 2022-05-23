@@ -19,11 +19,8 @@
  */
 package org.sosy_lab.cpachecker.cpa.locations;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.logging.Level;
 import org.sosy_lab.common.configuration.Configuration;
 import org.sosy_lab.common.configuration.InvalidConfigurationException;
@@ -48,37 +45,28 @@ public class LocationsCPA extends AbstractCPA
     return AutomaticCPAFactory.forType(LocationsCPA.class);
   }
 
-  @SuppressWarnings("unused")
-  public LocationsCPA(Configuration config, LogManager pLogger, CFA pCfa)
+  public static LocationsCPA create(Configuration pConfig, LogManager pLogger, CFA pCfa)
       throws InvalidConfigurationException {
-    super("sep", "sep", new LocationsTransferRelation(config, pCfa));
+    return new LocationsCPA(pConfig, pLogger, pCfa);
+  }
+
+  public LocationsCPA(Configuration pConfig, LogManager pLogger, CFA pCfa)
+      throws InvalidConfigurationException {
+    super("sep", "sep", new LocationsTransferRelation(pConfig, pCfa));
     pLogger.log(
         Level.INFO,
         "When verifying concurrent programs, please keep the parameters of LocationsCPA consistent with those of ThreadingCPA!");
   }
 
   @Override
-  public AbstractState getInitialState(CFANode pNode, StateSpacePartition pPartition)
+  public AbstractState getInitialState(CFANode pLoc, StateSpacePartition pPartition)
       throws InterruptedException {
-    Preconditions.checkNotNull(pNode);
-    // we create an empty LocationsState and enter the main function with the first thread.
-    // we use the main function's name as thread identifier.
-    String mainThread = pNode.getFunctionName();
-    Map<String, CFANode> initMap = new HashMap<>();
-    Map<String, Integer> initThreadNums = new HashMap<>();
-    initMap.put(mainThread, pNode);
-    initThreadNums.put(mainThread, LocationsTransferRelation.MIN_THREAD_NUM);
-
-    return new LocationsState(
-        initMap,
-        initThreadNums,
-        mainThread,
-        ((LocationsTransferRelation) getTransferRelation()).isFollowFunctionCalls());
+    return ((LocationsTransferRelation) getTransferRelation()).getInitialState(pLoc);
   }
 
   @Override
   public boolean areAbstractSuccessors(
-      AbstractState pElement,
+      AbstractState pState,
       CFAEdge pCfaEdge,
       Collection<? extends AbstractState> pSuccessors)
       throws CPATransferException, InterruptedException {
@@ -86,7 +74,7 @@ public class LocationsCPA extends AbstractCPA
     ImmutableSet<? extends AbstractState> actualSuccessors =
         ImmutableSet.copyOf(
             getTransferRelation().getAbstractSuccessorsForEdge(
-                pElement,
+                pState,
                 SingletonPrecision.getInstance(),
                 pCfaEdge));
     return successors.equals(actualSuccessors);

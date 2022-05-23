@@ -49,8 +49,8 @@ import org.sosy_lab.cpachecker.core.defaults.SingleEdgeTransferRelation;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.core.interfaces.Precision;
 import org.sosy_lab.cpachecker.core.interfaces.Statistics;
-import org.sosy_lab.cpachecker.cpa.locationss.LocationsCPA;
-import org.sosy_lab.cpachecker.cpa.locationss.LocationsState;
+import org.sosy_lab.cpachecker.cpa.locations.LocationsCPA;
+import org.sosy_lab.cpachecker.cpa.locations.LocationsState;
 import org.sosy_lab.cpachecker.cpa.por.EdgeType;
 import org.sosy_lab.cpachecker.cpa.por.ppor.PeepholeState;
 import org.sosy_lab.cpachecker.exceptions.CPATransferException;
@@ -70,7 +70,7 @@ public class BIPPORTransferRelation extends SingleEdgeTransferRelation {
     secure = true,
     description = "With this option enabled, the optimization strategy for removing repeated "
         + "key-event path order is used.")
-  private boolean useOptKEPHRemove = true;
+  private boolean useOptKEPHRemove = false;
 
   // Key Event: an event is called a key event if it need to access variables.
   private Set<Integer> keyEventCache = new HashSet<>();

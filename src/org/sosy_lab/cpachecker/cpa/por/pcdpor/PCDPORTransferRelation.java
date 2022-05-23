@@ -32,8 +32,8 @@ import org.sosy_lab.cpachecker.cfa.model.c.CAssumeEdge;
 import org.sosy_lab.cpachecker.core.defaults.SingleEdgeTransferRelation;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.core.interfaces.Precision;
-import org.sosy_lab.cpachecker.cpa.locationss.LocationsCPA;
-import org.sosy_lab.cpachecker.cpa.locationss.LocationsState;
+import org.sosy_lab.cpachecker.cpa.locations.LocationsCPA;
+import org.sosy_lab.cpachecker.cpa.locations.LocationsState;
 import org.sosy_lab.cpachecker.cpa.por.EdgeType;
 import org.sosy_lab.cpachecker.cpa.por.ppor.PeepholeState;
 import org.sosy_lab.cpachecker.exceptions.CPATransferException;
@@ -41,7 +41,7 @@ import org.sosy_lab.cpachecker.util.Pair;
 import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
 import org.sosy_lab.cpachecker.util.globalinfo.GlobalInfo;
 
-@Options(prefix = "cpa.por.cpdpor")
+@Options(prefix = "cpa.por.pcdpor")
 public class PCDPORTransferRelation extends SingleEdgeTransferRelation {
 
   @Option(
