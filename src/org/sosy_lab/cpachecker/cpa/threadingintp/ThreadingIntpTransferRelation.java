@@ -190,10 +190,10 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
   /**
    * We only need to add interruption at some special points (namely represent points).
    * <p>
-   * {\<location, interrupt_function_name\>, ...}
+   * {\<location, {interrupt_function_name, ...}\>, ...}
    * </p>
    */
-  private static Map<CFANode, String> repPoints;
+  private static Map<CFANode, Set<String>> repPoints;
 
   public enum InterruptPriorityOrder {
     SH, // the smaller a priority number of an interruption function is, the higher of its priority
@@ -264,8 +264,8 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
   }
 
   // TODO: this function currently is only for testing interruption implementation.
-  private Map<CFANode, String> buildRepPointMap() {
-    Map<CFANode, String> results = new HashMap<>();
+  private Map<CFANode, Set<String>> buildRepPointMap() {
+    Map<CFANode, Set<String>> results = new HashMap<>();
     
     Set<CFANode> visitedNodes = new HashSet<>();
     Deque<CFANode> waitlist = new ArrayDeque<>();
@@ -284,7 +284,11 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
                     intpFuncName.contains(CFACloner.SEPARATOR)
                         ? intpFuncName.substring(0, intpFuncName.indexOf(CFACloner.SEPARATOR))
                         : intpFuncName;
-                results.put(node, intpFuncName);
+                if (!results.containsKey(node)) {
+                  results.put(node, new HashSet<>());
+                }
+
+                results.get(node).add(intpFuncName);
               }
               waitlist.push(edge.getSuccessor());
             }
@@ -1273,7 +1277,7 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
     while (locsIter.hasNext()) {
       CFANode loc = locsIter.next();
       if (repPoints.containsKey(loc)) {
-        canIntpPoints.add(Pair.of(loc, repPoints.get(loc)));
+        canIntpPoints.addAll(from(repPoints.get(loc)).transform(f -> Pair.of(loc, f)).toSet());
       }
     }
 
