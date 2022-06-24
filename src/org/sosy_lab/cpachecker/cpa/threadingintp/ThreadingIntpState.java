@@ -693,14 +693,14 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
 
   public boolean isInterruptEnabled(int pLevel) {
     Preconditions.checkArgument(
-        pLevel >= 0 && pLevel < intpLevelEnableFlags.length,
+        pLevel > 0 && pLevel <= intpLevelEnableFlags.length,
         "interruption level "
             + pLevel
-            + " is out of boundary (0 ~ "
+            + " is out of boundary (1 ~ "
             + intpLevelEnableFlags.length
             + ").");
 
-    return intpLevelEnableFlags[pLevel];
+    return intpLevelEnableFlags[pLevel - 1];
   }
 
   public boolean isAllInterruptDisabled() {
@@ -765,6 +765,10 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
 
   public String popIntpStack() {
     return intpStack.pop();
+  }
+
+  public int getIntpStackLevel() {
+    return intpStack.size();
   }
 
   public void addIntpFuncTimes(String intpFuncName) {
