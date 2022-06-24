@@ -33,7 +33,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -79,11 +78,15 @@ import org.sosy_lab.cpachecker.cpa.automaton.AutomatonState;
 import org.sosy_lab.cpachecker.cpa.automaton.AutomatonVariable;
 import org.sosy_lab.cpachecker.cpa.callstack.CallstackCPA;
 import org.sosy_lab.cpachecker.cpa.location.LocationCPA;
+import org.sosy_lab.cpachecker.cpa.threading.GlobalAccessChecker;
 import org.sosy_lab.cpachecker.exceptions.CPATransferException;
 import org.sosy_lab.cpachecker.exceptions.UnrecognizedCodeException;
 import org.sosy_lab.cpachecker.util.AbstractStates;
 import org.sosy_lab.cpachecker.util.Pair;
 import org.sosy_lab.cpachecker.util.automaton.AutomatonGraphmlCommon.KeyDef;
+import org.sosy_lab.cpachecker.util.dependence.conditional.ConditionalDepGraph;
+import org.sosy_lab.cpachecker.util.dependence.conditional.EdgeVtx;
+import org.sosy_lab.cpachecker.util.globalinfo.GlobalInfo;
 
 @Options(prefix = "cpa.threadingintp")
 public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelation {
@@ -157,6 +160,9 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
     description = "Whether enable interrupt nesting (i.e., allow high-priority interrupts during processing a "
         + "low-priority interrupt). NOTICE: this option may cause expensive interleavings!")
   private boolean enableInterruptNesting = false;
+  @Option(secure = true, description = "This option limits the maximun level of interrupt nesting.")
+  private int maxLevelInterruptNesting = 2;
+
 
   @Option(
     secure = true,
@@ -185,8 +191,6 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
         + "function (-1 for un-limit times of interruption).")
   private int maxInterruptTimesForEachFunc = 1;
 
-  // {<interrupt_function_name, function_entry_point>, ...}
-  private static Map<String, CFANode> intpFuncEntryMap;
   /**
    * We only need to add interruption at some special points (namely represent points).
    * <p>
@@ -227,6 +231,8 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
 
   private final GlobalAccessChecker globalAccessChecker = new GlobalAccessChecker();
 
+  private final ConditionalDepGraph condDepGraph;
+
   public ThreadingIntpTransferRelation(Configuration pConfig, CFA pCfa, LogManager pLogger)
       throws InvalidConfigurationException {
     pConfig.inject(this);
@@ -234,9 +240,9 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
     locationCPA = LocationCPA.create(pCfa, pConfig);
     callstackCPA = new CallstackCPA(pConfig, pLogger);
     logger = pLogger;
+    condDepGraph = GlobalInfo.getInstance().getEdgeInfo().getCondDepGraph();
 
     priorityMap = parseInterruptPriorityFile();
-    intpFuncEntryMap = buildIntpFuncEntryMap();
     repPoints = buildRepPointMap();
 
     isVerifyingConcurrentProgram =
@@ -245,60 +251,115 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
             .isEmpty();
   }
 
-  private Map<String, CFANode> buildIntpFuncEntryMap() {
-    Map<String, CFANode> results = new HashMap<>();
-    Set<String> intpFuncSet = priorityMap.keySet();
-
-    for (Entry<String, FunctionEntryNode> e : cfa.getAllFunctions().entrySet()) {
-      String funcName = e.getKey();
-      funcName =
-          funcName.contains(CFACloner.SEPARATOR)
-              ? funcName.substring(0, funcName.indexOf(CFACloner.SEPARATOR))
-              : funcName;
-      if (intpFuncSet.contains(funcName)) {
-        results.put(e.getKey(), e.getValue());
-      }
-    }
-
-    return results;
-  }
-
   // TODO: this function currently is only for testing interruption implementation.
   private Map<CFANode, Set<String>> buildRepPointMap() {
+    //// first step: get all the global access variables of interruption functions.
+    Map<String, Set<String>> intpFuncRWSharedVarMap = getIntpFuncReadWriteSharedVarMap();
+
+    //// second step: iterate all the edges of 'main' function.
     Map<CFANode, Set<String>> results = new HashMap<>();
-    
+
     Set<CFANode> visitedNodes = new HashSet<>();
     Deque<CFANode> waitlist = new ArrayDeque<>();
-    for (FunctionEntryNode funcEntry : cfa.getAllFunctionHeads()) {
-      waitlist.push(funcEntry);
-      while (!waitlist.isEmpty()) {
-        CFANode node = waitlist.pop();
 
-        if (!visitedNodes.contains(node)) {
-          for (int i = 0; i < node.getNumLeavingEdges(); ++i) {
-            CFAEdge edge = node.getLeavingEdge(i);
-            if (!visitedNodes.contains(edge.getSuccessor())) {
-              if (edge.toString().contains("svp_simple_015_001_global_var1 < y")) {
-                String intpFuncName = intpFuncEntryMap.keySet().iterator().next();
-                intpFuncName =
-                    intpFuncName.contains(CFACloner.SEPARATOR)
-                        ? intpFuncName.substring(0, intpFuncName.indexOf(CFACloner.SEPARATOR))
-                        : intpFuncName;
-                if (!results.containsKey(node)) {
-                  results.put(node, new HashSet<>());
+    // obtain the entry point of 'main' function.
+    FunctionEntryNode mainEntry = cfa.getMainFunction();
+    waitlist.push(mainEntry);
+    boolean isEnterMainBody = false;
+    while (!waitlist.isEmpty()) {
+      CFANode node = waitlist.pop();
+
+      if (!visitedNodes.contains(node)) {
+        for (int i = 0; i < node.getNumLeavingEdges(); ++i) {
+          CFAEdge edge = node.getLeavingEdge(i);
+
+          // the first blank-edge is
+          if (!isEnterMainBody && (edge.getDescription().equals("Function start dummy edge"))) {
+            isEnterMainBody = true;
+          }
+
+          // enter the body of main function.
+          if (isEnterMainBody) {
+            EdgeVtx edgeInfo = (EdgeVtx) condDepGraph.getDGNode(edge.hashCode());
+
+            if (edgeInfo != null) {
+              // get read/write variables of the main function edge.
+              Set<String> edgeRWSharedVarSet = new HashSet<>();
+              edgeRWSharedVarSet
+                  .addAll(from(edgeInfo.getgReadVars()).transform(v -> v.getName()).toSet());
+              edgeRWSharedVarSet
+                  .addAll(from(edgeInfo.getgWriteVars()).transform(v -> v.getName()).toSet());
+
+              // NOTICE: we need to add selection point to the successor node of current edge.
+              CFANode sucNode = edge.getSuccessor();
+              for (String intpFunc : intpFuncRWSharedVarMap.keySet()) {
+                Set<String> intpRWSharedVarSet = intpFuncRWSharedVarMap.get(intpFunc);
+
+                // current edge has accessed some common shared variables that accessed by the
+                // interruption function. we regard the successor node of current edge as an
+                // 'representative selection point'.
+                if (!Sets.intersection(intpRWSharedVarSet, edgeRWSharedVarSet).isEmpty()) {
+                  if (!results.containsKey(sucNode)) {
+                    results.put(sucNode, new HashSet<>());
+                  }
+                  results.get(sucNode).add(intpFunc);
                 }
-
-                results.get(node).add(intpFuncName);
               }
-              waitlist.push(edge.getSuccessor());
             }
           }
 
-          visitedNodes.add(node);
+          waitlist.push(edge.getSuccessor());
         }
+
+        visitedNodes.add(node);
       }
     }
     
+    return results;
+  }
+
+  private Map<String, Set<String>> getIntpFuncReadWriteSharedVarMap() {
+    Map<String, Set<String>> results = new HashMap<>();
+
+    Set<CFANode> visitedNodes = new HashSet<>();
+    Deque<CFANode> waitlist = new ArrayDeque<>();
+
+    for (String func : cfa.getAllFunctionNames()) {
+      // we only process the shared variables of interruption functions.
+      if (priorityMap.containsKey(removeCloneInfoOfFuncName(func))) {
+        Set<String> funcReadWriteSharedVars = new HashSet<>();
+
+        waitlist.push(cfa.getFunctionHead(func));
+        while (!waitlist.isEmpty()) {
+          CFANode node = waitlist.pop();
+
+          if (!visitedNodes.contains(node)) {
+            // iterate all the successor edges of node.
+            for (int i = 0; i < node.getNumLeavingEdges(); ++i) {
+              CFAEdge edge = node.getLeavingEdge(i);
+              if (!visitedNodes.contains(edge.getSuccessor())) {
+                // get the access information of global variables of the edge.
+                EdgeVtx edgeInfo = (EdgeVtx) condDepGraph.getDGNode(edge.hashCode());
+
+                if (edgeInfo != null) {
+                  funcReadWriteSharedVars
+                      .addAll(from(edgeInfo.getgReadVars()).transform(v -> v.getName()).toSet());
+                  funcReadWriteSharedVars
+                      .addAll(from(edgeInfo.getgWriteVars()).transform(v -> v.getName()).toSet());
+                }
+
+                waitlist.push(edge.getSuccessor());
+              }
+            }
+
+            visitedNodes.add(node);
+          }
+        }
+
+        results.put(func, funcReadWriteSharedVars);
+      }
+    }
+
     return results;
   }
 
@@ -1229,7 +1290,16 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
         // create interrupts orderly.
         for (int i = 0; i < oil.size(); ++i) {
           String intpFunc = oil.get(i);
-          newThreadingState = addNewIntpThread(newThreadingState, intpFunc);
+          if ((ts.getIntpStackLevel() < maxLevelInterruptNesting)
+              && (intpFunc != null && !intpFunc.isEmpty())) {
+            newThreadingState = addNewIntpThread(newThreadingState, intpFunc);
+          } else {
+            // we do nothing if the maximum interrupt nesting level is reached.
+            logger.log(
+                Level.WARNING,
+                "current state reaches the maximum interrupt nesting level "
+                    + maxLevelInterruptNesting);
+          }
         }
         newResults.add(newThreadingState);
       }

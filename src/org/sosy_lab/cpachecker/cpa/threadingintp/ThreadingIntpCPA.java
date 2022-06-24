@@ -37,6 +37,7 @@ public class ThreadingIntpCPA extends AbstractCPA {
 
   public ThreadingIntpCPA(Configuration config, LogManager pLogger, CFA pCfa) throws InvalidConfigurationException {
     super("sep", "sep", new ThreadingIntpTransferRelation(config, pCfa, pLogger));
+    config.inject(this);
   }
 
   @Override
