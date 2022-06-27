@@ -291,7 +291,7 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
                   .addAll(from(edgeInfo.getgWriteVars()).transform(v -> v.getName()).toSet());
 
               // NOTICE: we need to add selection point to the successor node of current edge.
-              CFANode sucNode = edge.getSuccessor();
+              CFANode preNode = edge.getPredecessor();
               for (String intpFunc : intpFuncRWSharedVarMap.keySet()) {
                 Set<String> intpRWSharedVarSet = intpFuncRWSharedVarMap.get(intpFunc);
 
@@ -299,10 +299,10 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
                 // interruption function. we regard the successor node of current edge as an
                 // 'representative selection point'.
                 if (!Sets.intersection(intpRWSharedVarSet, edgeRWSharedVarSet).isEmpty()) {
-                  if (!results.containsKey(sucNode)) {
-                    results.put(sucNode, new HashSet<>());
+                  if (!results.containsKey(preNode)) {
+                    results.put(preNode, new HashSet<>());
                   }
-                  results.get(sucNode).add(intpFunc);
+                  results.get(preNode).add(intpFunc);
                 }
               }
             }
@@ -442,11 +442,11 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
     }
 
     // check if currently is processing an interrupt.
-    if (threadingState.isProcessingInterrupt()
-        && !priorityMap.keySet()
-            .contains(
-                removeCloneInfoOfFuncName(threadingState.getFuncNameByThreadId(activeThread)))) {
-      return ImmutableSet.of();
+    if (threadingState.isProcessingInterrupt()) {
+      String curIntpId = threadingState.getButNotRemoveTopProcInterruptId();
+      if (curIntpId != null && !activeThread.equals(curIntpId)) {
+        return ImmutableSet.of();
+      }
     }
 
     // check, if we can abort the complete analysis of all other threads after this edge.
@@ -1229,12 +1229,9 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
       getGreaterPriorityInterrupts(
           final ThreadingIntpState threadingState,
           final ImmutableSet<Pair<Integer, String>> intpPriFuncPairSet) {
-    String topIntpId = threadingState.getButNotRemoveTopProcInterruptId(),
-        topIntpFunc =
-            topIntpId != null
-                ? removeCloneInfoOfFuncName(threadingState.getFuncNameByThreadId(topIntpId))
-                : null;
-    int topIntpPri = topIntpFunc != null ? priorityMap.get(topIntpFunc) : getLowestPriority();
+    String topIntpId = threadingState.getButNotRemoveTopProcInterruptId();
+    int topIntpPri = topIntpId != null ? priorityMap.get(topIntpId) : getLowestPriority();
+
     ImmutableSet<Pair<Integer, String>> intpsPriGreater;
     if (intpPriOrder.equals(InterruptPriorityOrder.BH)) {
       intpsPriGreater = from(intpPriFuncPairSet).filter(p -> p.getFirst() > topIntpPri).toSet();

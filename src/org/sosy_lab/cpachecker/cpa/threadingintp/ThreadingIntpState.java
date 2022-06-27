@@ -734,6 +734,14 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
     }
   }
 
+  public AbstractState getCallstackByThreadId(final String threadId) {
+    if (threadId != null && threads.containsKey(threadId)) {
+      return threads.get(threadId).getCallstack();
+    } else {
+      return null;
+    }
+  }
+
   public static String removeCloneInfoOfFuncName(String funcName) {
     if (funcName != null) {
       return funcName.contains(CFACloner.SEPARATOR)
