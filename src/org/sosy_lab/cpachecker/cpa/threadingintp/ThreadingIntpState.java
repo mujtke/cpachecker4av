@@ -134,7 +134,9 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
     this.threads = pThreads;
     this.locks = pLocks;
     this.intpStack = new ArrayDeque<>(pIntpStack);
-    this.intpLevelEnableFlags = pIntpLevelEnableFlags;
+    this.intpLevelEnableFlags = new boolean[pIntpLevelEnableFlags.length];
+    for (int i = 0; i < pIntpLevelEnableFlags.length; ++i)
+      this.intpLevelEnableFlags[i] = pIntpLevelEnableFlags[i];
     this.intpTimes = new HashMap<>(pIntpTimes);
     this.activeThread = pActiveThread;
     this.entryFunction = entryFunction;
@@ -468,6 +470,11 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
 
     sb.append("[");
     Joiner.on(",\n ").withKeyValueSeparator("=").appendTo(sb, threads);
+    sb.append("]");
+    sb.append("\nenable flags: [");
+    for(int i = 0; i < intpLevelEnableFlags.length; ++i) {
+      sb.append(" " + intpLevelEnableFlags[i] + " ");
+    }
     sb.append("]");
 
     return sb.toString();
