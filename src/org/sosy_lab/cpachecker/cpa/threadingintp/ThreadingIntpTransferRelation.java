@@ -14,6 +14,7 @@ import static com.google.common.collect.FluentIterable.from;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -33,6 +34,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -53,11 +55,13 @@ import org.sosy_lab.cpachecker.cfa.ast.AIdExpression;
 import org.sosy_lab.cpachecker.cfa.ast.AStatement;
 import org.sosy_lab.cpachecker.cfa.ast.c.CExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CFunctionCall;
+import org.sosy_lab.cpachecker.cfa.ast.c.CFunctionCallAssignmentStatement;
 import org.sosy_lab.cpachecker.cfa.ast.c.CFunctionCallExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CFunctionCallStatement;
 import org.sosy_lab.cpachecker.cfa.ast.c.CFunctionDeclaration;
 import org.sosy_lab.cpachecker.cfa.ast.c.CIdExpression;
 import org.sosy_lab.cpachecker.cfa.ast.c.CIntegerLiteralExpression;
+import org.sosy_lab.cpachecker.cfa.ast.c.CStatement;
 import org.sosy_lab.cpachecker.cfa.ast.c.CUnaryExpression;
 import org.sosy_lab.cpachecker.cfa.model.AStatementEdge;
 import org.sosy_lab.cpachecker.cfa.model.CFAEdge;
@@ -67,6 +71,7 @@ import org.sosy_lab.cpachecker.cfa.model.CFATerminationNode;
 import org.sosy_lab.cpachecker.cfa.model.FunctionEntryNode;
 import org.sosy_lab.cpachecker.cfa.model.c.CFunctionCallEdge;
 import org.sosy_lab.cpachecker.cfa.model.c.CFunctionEntryNode;
+import org.sosy_lab.cpachecker.cfa.model.c.CStatementEdge;
 import org.sosy_lab.cpachecker.cfa.postprocessing.global.CFACloner;
 import org.sosy_lab.cpachecker.cfa.types.c.CType;
 import org.sosy_lab.cpachecker.core.defaults.SingleEdgeTransferRelation;
@@ -259,70 +264,129 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
     //// second step: iterate all the edges of 'main' function.
     Map<CFANode, Set<String>> results = new HashMap<>();
 
+    // iterate all the normal functions besides the interruption functions.
+    Deque<String> waitFuncList = new ArrayDeque<>();
+    waitFuncList.push(cfa.getMainFunction().getFunctionName());
+
     Set<CFANode> visitedNodes = new HashSet<>();
     Deque<CFANode> waitlist = new ArrayDeque<>();
 
-    // obtain the entry point of 'main' function.
-    FunctionEntryNode mainEntry = cfa.getMainFunction();
-    waitlist.push(mainEntry);
-    boolean isEnterMainBody = false;
-    while (!waitlist.isEmpty()) {
-      CFANode node = waitlist.pop();
+    while (!waitFuncList.isEmpty()) {
+      String curFunc = waitFuncList.pop();
 
-      if (!visitedNodes.contains(node)) {
-        for (int i = 0; i < node.getNumLeavingEdges(); ++i) {
-          CFAEdge edge = node.getLeavingEdge(i);
+      // skip the interruption functions.
+      if (priorityMap.containsKey(curFunc)) {
+        continue;
+      }
 
-          // the first blank-edge is
-          if (!isEnterMainBody && (edge.getDescription().equals("Function start dummy edge"))) {
-            isEnterMainBody = true;
-          }
+      // obtain the entry point of current function.
+      FunctionEntryNode funcEntry = cfa.getFunctionHead(curFunc);
+      if (funcEntry == null) {
+        // we could not find the definition of this function, it means that this function is only
+        // has been declared.
+        continue;
+      }
 
-          // enter the body of main function.
-          if (isEnterMainBody) {
-            EdgeVtx edgeInfo = (EdgeVtx) condDepGraph.getDGNode(edge.hashCode());
+      waitlist.push(funcEntry);
+      boolean isEnterFuncBody = false;
+      while (!waitlist.isEmpty()) {
+        CFANode node = waitlist.pop();
 
-            if (edgeInfo != null) {
-              // get read/write variables of the main function edge.
-              Set<String> edgeRWSharedVarSet = new HashSet<>();
-              edgeRWSharedVarSet
-                  .addAll(from(edgeInfo.getgReadVars()).transform(v -> v.getName()).toSet());
-              edgeRWSharedVarSet
-                  .addAll(from(edgeInfo.getgWriteVars()).transform(v -> v.getName()).toSet());
+        if (!visitedNodes.contains(node)) {
+          for (int i = 0; i < node.getNumLeavingEdges(); ++i) {
+            CFAEdge edge = node.getLeavingEdge(i);
 
-              // NOTICE: we need to add selection point to the successor node of current edge.
-              CFANode preNode = edge.getPredecessor();
-              for (String intpFunc : intpFuncRWSharedVarMap.keySet()) {
-                Set<String> intpRWSharedVarSet = intpFuncRWSharedVarMap.get(intpFunc);
+            // the first blank-edge is
+            if (!isEnterFuncBody && (edge.getDescription().equals("Function start dummy edge"))) {
+              isEnterFuncBody = true;
+            }
 
-                // current edge has accessed some common shared variables that accessed by the
-                // interruption function. we regard the successor node of current edge as an
-                // 'representative selection point'.
-                if (!Sets.intersection(intpRWSharedVarSet, edgeRWSharedVarSet).isEmpty()) {
-                  if (!results.containsKey(preNode)) {
-                    results.put(preNode, new HashSet<>());
+            // enter the body of the current function.
+            if (isEnterFuncBody) {
+              EdgeVtx edgeInfo = (EdgeVtx) condDepGraph.getDGNode(edge.hashCode());
+
+              if (edgeInfo != null) {
+                // get read/write variables of the main function edge.
+                Set<String> edgeRWSharedVarSet = new HashSet<>();
+                edgeRWSharedVarSet
+                    .addAll(from(edgeInfo.getgReadVars()).transform(v -> v.getName()).toSet());
+                edgeRWSharedVarSet
+                    .addAll(from(edgeInfo.getgWriteVars()).transform(v -> v.getName()).toSet());
+
+                // NOTICE: we need to add selection point to the successor node of current edge.
+                CFANode preNode = edge.getPredecessor();
+                for (String intpFunc : intpFuncRWSharedVarMap.keySet()) {
+                  Set<String> intpRWSharedVarSet = intpFuncRWSharedVarMap.get(intpFunc);
+
+                  // current edge has accessed some common shared variables that accessed by the
+                  // interruption function. we regard the successor node of current edge as an
+                  // 'representative selection point'.
+                  if (!Sets.intersection(intpRWSharedVarSet, edgeRWSharedVarSet).isEmpty()) {
+                    if (!results.containsKey(preNode)) {
+                      results.put(preNode, new HashSet<>());
+                    }
+                    results.get(preNode).add(intpFunc);
                   }
-                  results.get(preNode).add(intpFunc);
                 }
               }
             }
+
+            //// process the function call statement edges.
+            // if the current function 'a' call another function 'b', we also should analyze
+            // the global variable access information of the function 'b'.
+            String callFuncName = null;
+            if (edge instanceof CFunctionCallEdge) {
+              CFunctionCallEdge funcCallEdge = (CFunctionCallEdge) edge;
+              callFuncName = funcCallEdge.getSuccessor().getFunctionName();
+            } else if (edge instanceof CStatementEdge) {
+              CStatementEdge stmtEdge = (CStatementEdge) edge;
+              CStatement stmt = stmtEdge.getStatement();
+
+              if (stmt instanceof CFunctionCallStatement) {
+                CFunctionCallStatement funcCallStmt = (CFunctionCallStatement) stmt;
+                callFuncName =
+                    funcCallStmt.getFunctionCallExpression().getFunctionNameExpression().toString();
+              } else if (stmt instanceof CFunctionCallAssignmentStatement) {
+                CFunctionCallAssignmentStatement funcCallAsgnStmt =
+                    (CFunctionCallAssignmentStatement) stmt;
+                callFuncName =
+                    funcCallAsgnStmt.getFunctionCallExpression()
+                        .getFunctionNameExpression()
+                        .toString();
+              }
+            }
+            if (callFuncName != null
+                && !(callFuncName.startsWith(enIntpFunc) || callFuncName.startsWith(disIntpFunc))) {
+              waitFuncList.push(callFuncName);
+            }
+
+            waitlist.push(edge.getSuccessor());
           }
 
-          waitlist.push(edge.getSuccessor());
+          visitedNodes.add(node);
         }
-
-        visitedNodes.add(node);
       }
     }
+
     
     return results;
   }
 
+  /**
+   * This function collects the shared variables accessed by each interruption function. NOTICE: if
+   * interruption function 'a' enables another interruption function 'b', we also add the shared
+   * variables that accessed by 'b' into the variable set of 'a'.
+   * 
+   * @return The set of shared variables accessed by each interruption function.
+   */
   private Map<String, Set<String>> getIntpFuncReadWriteSharedVarMap() {
     Map<String, Set<String>> results = new HashMap<>();
 
     Set<CFANode> visitedNodes = new HashSet<>();
     Deque<CFANode> waitlist = new ArrayDeque<>();
+
+    // record the interruption functions enable which other interruptions (priority).
+    Map<String, Set<Integer>> intpEnableRelation = new HashMap<>();
 
     for (String func : cfa.getAllFunctionNames()) {
       // we only process the shared variables of interruption functions.
@@ -338,6 +402,10 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
             for (int i = 0; i < node.getNumLeavingEdges(); ++i) {
               CFAEdge edge = node.getLeavingEdge(i);
               if (!visitedNodes.contains(edge.getSuccessor())) {
+                // if current interruption function enables certain priority, we
+                // make relation of this priority with current interruption function.
+                addIntpEnableRelationForEdge(func, edge, intpEnableRelation);
+
                 // get the access information of global variables of the edge.
                 EdgeVtx edgeInfo = (EdgeVtx) condDepGraph.getDGNode(edge.hashCode());
 
@@ -359,8 +427,53 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
         results.put(func, funcReadWriteSharedVars);
       }
     }
+    
+    // iterate all the enable relation, we add the variables of corresponding interruption function
+    // to current interruption function.
+    ImmutableMap<String, Set<String>> constCopy = ImmutableMap.copyOf(results);
+    for (Entry<String, Set<Integer>> intpEnRelation : intpEnableRelation.entrySet()) {
+      String intpFunc = intpEnRelation.getKey();
+      Set<Integer> enIntpPriSet = intpEnRelation.getValue();
 
+      ImmutableSet<String> relIntpFuncs =
+          from(priorityMap.keySet()).filter(s -> enIntpPriSet.contains(priorityMap.get(s))).toSet();
+      relIntpFuncs.forEach(f -> results.get(intpFunc).addAll(constCopy.get(f)));
+    }
+    
     return results;
+  }
+
+  private void addIntpEnableRelationForEdge(
+      String pFunc,
+      CFAEdge pEdge,
+      Map<String, Set<Integer>> pIntpMap) {
+    // we only process the interruption enable function.
+    if (pEdge instanceof AStatementEdge) {
+      AStatement stmt = ((AStatementEdge) pEdge).getStatement();
+      if (stmt instanceof AFunctionCall) {
+        String funcName =
+            ((AFunctionCall) stmt).getFunctionCallExpression()
+                .getFunctionNameExpression()
+                .toString();
+        if (!funcName.startsWith(enIntpFunc)) {
+          return;
+        }
+
+        List<? extends AExpression> funcArgs =
+            ((AFunctionCall) stmt).getFunctionCallExpression().getParameterExpressions();
+        // obtain the enabled priority.
+        if (funcArgs.size() == 1) {
+          AExpression enPriExp = funcArgs.get(0);
+          if (enPriExp instanceof CIntegerLiteralExpression) {
+            int enPri = ((CIntegerLiteralExpression) enPriExp).getValue().intValue();
+            if (!pIntpMap.containsKey(pFunc)) {
+              pIntpMap.put(pFunc, new HashSet<>());
+            }
+            pIntpMap.get(pFunc).add(enPri);
+          }
+        }
+      }
+    }
   }
 
   private Map<String, Integer> parseInterruptPriorityFile() {
@@ -707,7 +820,7 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
         if (tmp.isInterruptId(id)) {
           String topIntpId = tmp.getButNotRemoveTopProcInterruptId();
           if (topIntpId != null && topIntpId.equals(id)) {
-            tmp.popIntpStack();
+            tmp.popIntpQueue();
           }
         }
 
@@ -1287,7 +1400,7 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
         // create interrupts orderly.
         for (int i = 0; i < oil.size(); ++i) {
           String intpFunc = oil.get(i);
-          if ((ts.getIntpStackLevel() < maxLevelInterruptNesting)
+          if ((ts.getIntpQueueLevel() < maxLevelInterruptNesting)
               && (intpFunc != null && !intpFunc.isEmpty())) {
             newThreadingState = addNewIntpThread(newThreadingState, intpFunc);
           } else {
@@ -1329,7 +1442,7 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
         addNewThread(threadingState, intpThreadId, intpFuncPri, newIntpNum, intpFuncName);
     if (resThreadingState != null) {
       // setup other information.
-      resThreadingState.pushIntpStack(intpThreadId);
+      resThreadingState.pushIntpQueue(intpThreadId);
       resThreadingState.addIntpFuncTimes(intpFunc);
     }
 
