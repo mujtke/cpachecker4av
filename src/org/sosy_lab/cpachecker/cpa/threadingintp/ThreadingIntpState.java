@@ -75,9 +75,9 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
   private boolean[] intpLevelEnableFlags;
 
   // String :: identifier for the interrupt
-  // this queue only preserves the thread-ids of interrupts, other threads (include main)
-  // should not in this queue.
-  private final Deque<String> intpQueue;
+  // this stack only preserves the thread-ids of interrupts, other threads (include main)
+  // should not in this stack.
+  private final Deque<String> intpStack;
 
   /**
    * Thread-id of last active thread that produced this exact {@link ThreadingIntpState}. This value
@@ -110,7 +110,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
   public ThreadingIntpState(final int pMaxIntpLevel) {
     this.threads = PathCopyingPersistentTreeMap.of();
     this.locks = PathCopyingPersistentTreeMap.of();
-    this.intpQueue = new ArrayDeque<>();
+    this.intpStack = new ArrayDeque<>();
     this.intpTimes = new HashMap<>();
     this.activeThread = null;
     this.entryFunction = null;
@@ -133,7 +133,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
       PersistentMap<String, Integer> pThreadIdsForWitness) {
     this.threads = pThreads;
     this.locks = pLocks;
-    this.intpQueue = new ArrayDeque<>(pIntpQueue);
+    this.intpStack = new ArrayDeque<>(pIntpQueue);
     this.intpLevelEnableFlags = new boolean[pIntpLevelEnableFlags.length];
     for (int i = 0; i < pIntpLevelEnableFlags.length; ++i)
       this.intpLevelEnableFlags[i] = pIntpLevelEnableFlags[i];
@@ -147,7 +147,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
     return new ThreadingIntpState(
         pThreads,
         locks,
-        new ArrayDeque<>(intpQueue),
+        new ArrayDeque<>(intpStack),
         intpLevelEnableFlags,
         new HashMap<>(intpTimes),
         activeThread,
@@ -159,7 +159,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
     return new ThreadingIntpState(
         threads,
         pLocks,
-        new ArrayDeque<>(intpQueue),
+        new ArrayDeque<>(intpStack),
         intpLevelEnableFlags,
         new HashMap<>(intpTimes),
         activeThread,
@@ -172,7 +172,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
     return new ThreadingIntpState(
         threads,
         locks,
-        new ArrayDeque<>(intpQueue),
+        new ArrayDeque<>(intpStack),
         intpLevelEnableFlags,
         new HashMap<>(intpTimes),
         activeThread,
@@ -286,7 +286,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
         new ThreadingIntpState(
         threads,
         locks,
-            new ArrayDeque<>(intpQueue),
+            new ArrayDeque<>(intpStack),
         intpLevelEnableFlags,
             new HashMap<>(intpTimes),
         activeThread,
@@ -302,7 +302,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
         new ThreadingIntpState(
             threads,
             locks,
-            new ArrayDeque<>(intpQueue),
+            new ArrayDeque<>(intpStack),
             intpLevelEnableFlags,
             new HashMap<>(intpTimes),
             activeThread,
@@ -331,7 +331,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
         new ThreadingIntpState(
         threads,
         locks,
-            new ArrayDeque<>(intpQueue),
+            new ArrayDeque<>(intpStack),
         intpLevelEnableFlags,
             new HashMap<>(intpTimes),
         activeThread,
@@ -347,7 +347,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
         new ThreadingIntpState(
             threads,
             locks,
-            new ArrayDeque<>(intpQueue),
+            new ArrayDeque<>(intpStack),
             intpLevelEnableFlags,
             new HashMap<>(intpTimes),
             activeThread,
@@ -398,7 +398,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
   }
 
   public boolean isProcessingInterrupt() {
-    return !intpQueue.isEmpty();
+    return !intpStack.isEmpty();
   }
 
   @Override
@@ -408,7 +408,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
         + "}\n and locks={"
         + Joiner.on(",\n ").withKeyValueSeparator("=").join(locks)
         + "}\n and intpStack={"
-        + Joiner.on(", ").join(intpQueue)
+        + Joiner.on(", ").join(intpStack)
         + "}\n and interrupt flags={"
         + Arrays.toString(intpLevelEnableFlags)
         + "}\n"
@@ -426,7 +426,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
     ThreadingIntpState ts = (ThreadingIntpState)other;
     return threads.equals(ts.threads)
         && locks.equals(ts.locks)
-        && intpQueue.equals(ts.intpQueue)
+        && intpStack.equals(ts.intpStack)
         && Arrays.equals(intpLevelEnableFlags, ts.intpLevelEnableFlags)
         && Objects.equals(activeThread, ts.activeThread)
         && threadIdsForWitness.equals(ts.threadIdsForWitness);
@@ -438,7 +438,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
         .hash(
             threads,
             locks,
-            intpQueue,
+            intpStack,
             Arrays.hashCode(intpLevelEnableFlags),
             activeThread,
             threadIdsForWitness);
@@ -641,7 +641,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
     return new ThreadingIntpState(
         threads,
         locks,
-        new ArrayDeque<>(intpQueue),
+        new ArrayDeque<>(intpStack),
         intpLevelEnableFlags,
         new HashMap<>(intpTimes),
         pActiveThread,
@@ -658,7 +658,7 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
     return new ThreadingIntpState(
         threads,
         locks,
-        new ArrayDeque<>(intpQueue),
+        new ArrayDeque<>(intpStack),
         intpLevelEnableFlags,
         new HashMap<>(intpTimes),
         activeThread,
@@ -720,8 +720,8 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
   }
 
   public String getButNotRemoveTopProcInterruptId() {
-    if (!intpQueue.isEmpty()) {
-      return intpQueue.peekFirst();
+    if (!intpStack.isEmpty()) {
+      return intpStack.peekLast();
     }
     return null;
   }
@@ -771,16 +771,18 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
     return intpTimes.containsKey(intpFuncName) ? intpTimes.get(intpFuncName) : 0;
   }
 
-  public void pushIntpQueue(String intpThreadId) {
-    intpQueue.addLast(intpThreadId);
+  public void pushIntpStack(String intpThreadId) {
+    intpStack.addLast(intpThreadId);
   }
 
-  public String popIntpQueue() {
-    return intpQueue.removeFirst();
+  public void removeIntpFromStack(String intpFuncName) {
+    // NOTICE: this may cause the feature 'interrupt reentrant' not well supported!
+    // TODO: fix this operation to support interrupt reentrant.
+    intpStack.remove(intpFuncName);
   }
 
-  public int getIntpQueueLevel() {
-    return intpQueue.size();
+  public int getIntpStackLevel() {
+    return intpStack.size();
   }
 
   public void addIntpFuncTimes(String intpFuncName) {
