@@ -8,20 +8,23 @@
 
 package org.sosy_lab.cpachecker.cpa.datarace;
 
+import java.util.Objects;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractQueryableState;
 import org.sosy_lab.cpachecker.core.interfaces.AbstractState;
 import org.sosy_lab.cpachecker.exceptions.InvalidQueryException;
 
 public class DataRaceState implements AbstractState, AbstractQueryableState {
 
+  private boolean parentIsDataRaceFlag;
   private boolean isDataRace;
 
-  public DataRaceState(boolean pIsDataRace) {
+  public DataRaceState(boolean pParentIsDataRaceFlag, boolean pIsDataRace) {
+    parentIsDataRaceFlag = pParentIsDataRaceFlag;
     isDataRace = pIsDataRace;
   }
 
   public static DataRaceState getInitialInstance() {
-    return new DataRaceState(false);
+    return new DataRaceState(false, false);
   }
 
   public boolean isDataRace() {
@@ -33,9 +36,31 @@ public class DataRaceState implements AbstractState, AbstractQueryableState {
   }
 
   @Override
+  public int hashCode() {
+    return Objects.hash(isDataRace, parentIsDataRaceFlag);
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj)
+      return true;
+    if (obj == null)
+      return false;
+    if (getClass() != obj.getClass())
+      return false;
+    DataRaceState other = (DataRaceState) obj;
+    return isDataRace == other.isDataRace && parentIsDataRaceFlag == other.parentIsDataRaceFlag;
+  }
+
+  @Override
+  public String toString() {
+    return "data-race: " + isDataRace;
+  }
+
+  @Override
   public boolean checkProperty(String pProperty) throws InvalidQueryException {
     if (pProperty.equalsIgnoreCase("data-race")) {
-      return isDataRace;
+      return parentIsDataRaceFlag;
     } else {
       throw new InvalidQueryException("The Query \"" + pProperty + "\" is invalid.");
     }

@@ -367,7 +367,7 @@ public class ConditionalDepGraphBuilder {
     while (funcIter.hasNext()) {
       FunctionEntryNode funcEntry = funcIter.next();
       if (isSelfBlockFunction(funcEntry.getFunctionName())) {
-        selfBlockFunEntry.add(funcEntry);
+        selfBlockFunEntry.add(funcEntry);   // added by yzc: the function entry can represent the function.
       } else {
         noSelfBlockFunEntry.add(funcEntry);
       }

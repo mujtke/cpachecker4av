@@ -149,11 +149,13 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
 
   @Option(
     secure = true,
-    description = "This file contains the priority of all the "
-        + "interruption functions. Each line consists of two elements: 1. the interruption "
-        + "function, and 2. the priority number of this function. (Example: isr_func1 0) Notice: the smaller a priority "
-        + "number is, the higher priority of the interrupt function is.")
-  private String priorityFile = "IntrruptPriority.txt";
+    description = "This folder contains the priority files that have the same prefix with the main function.")
+  private String priorityFileFolder = "./config/";
+  @Option(
+    secure = true,
+    description = "This string spefies the file extension of the priority file name.")
+  private String priorityFileExtSuffix = "_priority.txt";
+
   @Option(
     secure = true,
     description = "The regex for extracting the interruption priority from a file.")
@@ -265,19 +267,25 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
     //// second step: iterate all the edges of 'main' function & the interruption functions.
     Map<CFANode, Set<String>> results = new HashMap<>();
 
-    //// third step 1: process main function - interruption function
-    Set<String> procFuncs = new HashSet<>();
-    procFuncs.add(cfa.getMainFunction().getFunctionName());
-    results = handleRepPointForFunctions(intpFuncRWSharedVarMap, procFuncs, results);
+    try {
+      //// third step 1: process main function - interruption function
+      Set<String> procFuncs = new HashSet<>();
+      procFuncs.add(cfa.getMainFunction().getFunctionName());
+      results = handleRepPointForFunctions(intpFuncRWSharedVarMap, procFuncs, results);
 
-    //// third step 2: process interruption function - interruption function
-    procFuncs.clear();
-    procFuncs.addAll(priorityMap.keySet());
-    results = handleRepPointForFunctions(intpFuncRWSharedVarMap, procFuncs, results);
+      //// third step 2: process interruption function - interruption function
+      procFuncs.clear();
+      procFuncs.addAll(priorityMap.keySet());
+      results = handleRepPointForFunctions(intpFuncRWSharedVarMap, procFuncs, results);
 
-    //// forth step: process the case that the main function and the functions it called do not
-    //// access any shared variable.
-    results = handleRepPointCaseEmptyResults(results);
+      //// forth step: process the case that the main/interruption function and the functions it
+      //// called do not
+      //// access any shared variable.
+      procFuncs.add(cfa.getMainFunction().getFunctionName());
+      results = handleRepPointCaseEmptyResults(results, procFuncs);
+    } catch (UnrecognizedCodeException e) {
+      e.printStackTrace();
+    }
 
     return results;
   }
@@ -285,7 +293,8 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
   private Map<CFANode, Set<String>> handleRepPointForFunctions(
       Map<String, Set<String>> intpFuncRWSharedVarMap,
       Set<String> pProcFuncSet,
-      Map<CFANode, Set<String>> pResults) {
+      Map<CFANode, Set<String>> pResults)
+      throws UnrecognizedCodeException {
 
     // iterate all the interruption functions.
     Iterator<String> intpFuncIter = pProcFuncSet.iterator();
@@ -326,6 +335,8 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
               // enter the body of the current function.
               if (isEnterFuncBody) {
                 EdgeVtx edgeInfo = (EdgeVtx) condDepGraph.getDGNode(edge.hashCode());
+                // NOTICE: we need to add selection point to the successor node of current edge.
+                CFANode preNode = edge.getPredecessor();
 
                 if (edgeInfo != null) {
                   // get read/write variables of the main function edge.
@@ -335,8 +346,6 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
                   edgeRWSharedVarSet
                       .addAll(from(edgeInfo.getgWriteVars()).transform(v -> v.getName()).toSet());
 
-                  // NOTICE: we need to add selection point to the successor node of current edge.
-                  CFANode preNode = edge.getPredecessor();
                   for (String intpFunc : intpFuncRWSharedVarMap.keySet()) {
                     // if not allow the feature of interrupt reentrant, then we should skip this
                     // case.
@@ -356,37 +365,72 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
                       pResults.get(preNode).add(intpFunc);
                     }
                   }
+                }
 
-                  //// process the function call statement edges.
-                  // if the current function 'a' call another function 'b', we also should analyze
-                  // the global variable access information of the function 'b'.
-                  String callFuncName = null;
-                  if (edge instanceof CFunctionCallEdge) {
-                    CFunctionCallEdge funcCallEdge = (CFunctionCallEdge) edge;
-                    callFuncName = funcCallEdge.getSuccessor().getFunctionName();
-                  } else if (edge instanceof CStatementEdge) {
-                    CStatementEdge stmtEdge = (CStatementEdge) edge;
-                    CStatement stmt = stmtEdge.getStatement();
+                //// process the function call statement edges.
+                // if the current function 'a' call another function 'b', we also should analyze
+                // the global variable access information of the function 'b'.
+                String callFuncName = null;
+                if (edge instanceof CFunctionCallEdge) {
+                  CFunctionCallEdge funcCallEdge = (CFunctionCallEdge) edge;
+                  callFuncName = funcCallEdge.getSuccessor().getFunctionName();
+                } else if (edge instanceof CStatementEdge) {
+                  CStatementEdge stmtEdge = (CStatementEdge) edge;
+                  CStatement stmt = stmtEdge.getStatement();
 
-                    if (stmt instanceof CFunctionCallStatement) {
-                      CFunctionCallStatement funcCallStmt = (CFunctionCallStatement) stmt;
-                      callFuncName =
-                          funcCallStmt.getFunctionCallExpression()
-                              .getFunctionNameExpression()
-                              .toString();
-                    } else if (stmt instanceof CFunctionCallAssignmentStatement) {
-                      CFunctionCallAssignmentStatement funcCallAsgnStmt =
-                          (CFunctionCallAssignmentStatement) stmt;
-                      callFuncName =
-                          funcCallAsgnStmt.getFunctionCallExpression()
-                              .getFunctionNameExpression()
-                              .toString();
-                    }
+                  if (stmt instanceof CFunctionCallStatement) {
+                    CFunctionCallStatement funcCallStmt = (CFunctionCallStatement) stmt;
+                    callFuncName =
+                        funcCallStmt.getFunctionCallExpression()
+                            .getFunctionNameExpression()
+                            .toString();
+                  } else if (stmt instanceof CFunctionCallAssignmentStatement) {
+                    CFunctionCallAssignmentStatement funcCallAsgnStmt =
+                        (CFunctionCallAssignmentStatement) stmt;
+                    callFuncName =
+                        funcCallAsgnStmt.getFunctionCallExpression()
+                            .getFunctionNameExpression()
+                            .toString();
                   }
-                  if (callFuncName != null
-                      && !(callFuncName.startsWith(enIntpFunc)
-                          || callFuncName.startsWith(disIntpFunc))) {
+                }
+                if (callFuncName != null) {
+                  if (!(callFuncName.startsWith(enIntpFunc)
+                      || callFuncName.startsWith(disIntpFunc))) {
                     waitFuncList.push(callFuncName);
+                  } else if (callFuncName.startsWith(enIntpFunc)) {
+                    //// special process for interruption enable function.
+                    // for this function, we add all the interruption functions with
+                    // the same priority that this enable-function specified to the preNode.
+                    int intpLevel = getEnDisIntpLevel(edge).getFirst();
+
+                    if (intpLevel == -1) {
+                      // enable all the interruption functions.
+                      // if (!allowInterruptReentrant) {
+                      // pResults.get(preNode)
+                      // .addAll(
+                      // Sets.filter(priorityMap.keySet(), f -> !f.equals(curIntpFunc)));
+                      // } else {
+                      // pResults.get(preNode).addAll(priorityMap.keySet());
+                      // }
+                    } else {
+                      // enable a specific priority interruption functions.
+                      // we need to get all the interruption functions belongs to this
+                      // priority.
+                      ImmutableSet<String> samePriIntpFuncs =
+                          from(priorityMap.keySet())
+                              .filter(f -> priorityMap.get(f).equals(intpLevel))
+                              .toSet();
+                      if (!pResults.containsKey(preNode)) {
+                        pResults.put(preNode, new HashSet<>());
+                      }
+
+                      if (!allowInterruptReentrant) {
+                        pResults.get(preNode)
+                            .addAll(Sets.filter(samePriIntpFuncs, f -> !f.equals(curIntpFunc)));
+                      } else {
+                        pResults.get(preNode).addAll(samePriIntpFuncs);
+                      }
+                    }
                   }
                 }
               }
@@ -404,30 +448,48 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
   }
 
   private Map<CFANode, Set<String>>
-      handleRepPointCaseEmptyResults(Map<CFANode, Set<String>> pResults) {
-    //// Special process for the program that the main function and the functions it called do not
-    //// access the global variables.
+      handleRepPointCaseEmptyResults(
+          Map<CFANode, Set<String>> pResults,
+          Set<String> pProcFuncNames) {
+    //// Special process for the program that the main/interruption functions
+    //// (including the functions they called) do not access the global variables.
     // For this case, we will add all the interruption function to the 'pre-precursor' point of
-    // the exit location of the main function.
+    // the exit location of the main/interruption function.
 
-    // first step: obtain the nodes belongs to the 'main' function.
-    String mainFuncName = cfa.getMainFunction().getFunctionName();
-    ImmutableSet<CFANode> mainFuncNodes =
-        from(pResults.keySet()).filter(n -> n.getFunctionName().equals(mainFuncName)).toSet();
+    for (String funcName : pProcFuncNames) {
+      // first step: obtain the nodes belongs to the 'main/interruption' function.
+      ImmutableSet<CFANode> funcNodes =
+          from(pResults.keySet()).filter(n -> n.getFunctionName().equals(funcName)).toSet();
 
-    if (mainFuncNodes.isEmpty()) {
-      // NOTICE: we can not add interruption point at the precursor of the exit node, since this
-      // point is meaningless.
-      FunctionExitNode mainExitNode = cfa.getMainFunction().getExitNode();
-      int numEdgeToExitNode = mainExitNode.getNumEnteringEdges();
-      for (int i = 0; i < numEdgeToExitNode; ++i) {
-        CFANode preExitNode = mainExitNode.getEnteringEdge(i).getPredecessor();
+      if (funcNodes.isEmpty()) {
+        // NOTICE: we can not add interruption point at the precursor of the exit node, since this
+        // point is meaningless.
+        FunctionExitNode funcExitNode = cfa.getFunctionHead(funcName).getExitNode();
+        int numEdgeToExitNode = funcExitNode.getNumEnteringEdges();
+        for (int i = 0; i < numEdgeToExitNode; ++i) {
+          CFANode preExitNode = funcExitNode.getEnteringEdge(i).getPredecessor();
 
-        int numEdgeToPrePreExitNode = preExitNode.getNumEnteringEdges();
-        for (int j = 0; j < numEdgeToPrePreExitNode; ++j) {
-          CFANode prePreExitNode = preExitNode.getEnteringEdge(j).getPredecessor();
+          // if (!allowInterruptReentrant) {
+          // // add all the other interruption functions except for current main/interruption
+          // // function.
+          // pResults.put(preExitNode, Sets.filter(priorityMap.keySet(), f -> !f.equals(funcName)));
+          // } else {
+          // pResults.put(preExitNode, priorityMap.keySet());
+          // }
 
-          pResults.put(prePreExitNode, priorityMap.keySet());
+          int numEdgeToPrePreExitNode = preExitNode.getNumEnteringEdges();
+          for (int j = 0; j < numEdgeToPrePreExitNode; ++j) {
+            CFANode prePreExitNode = preExitNode.getEnteringEdge(j).getPredecessor();
+
+            if (!allowInterruptReentrant) {
+              // add all the other interruption functions except for current main/interruption
+              // function.
+              pResults
+                  .put(prePreExitNode, Sets.filter(priorityMap.keySet(), f -> !f.equals(funcName)));
+            } else {
+              pResults.put(prePreExitNode, priorityMap.keySet());
+            }
+          }
         }
       }
     }
@@ -600,48 +662,49 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
 
   private Map<String, Integer> parseInterruptPriorityFile() {
     Map<String, Integer> results = new HashMap<>();
+    String mainFunctionName = cfa.getMainFunction().getFunctionName();
 
-    if (priorityFile != null) {
-      File priFile = new File(priorityFile);
+    String priorityFile =
+        priorityFileFolder
+            + mainFunctionName.substring(0, mainFunctionName.indexOf("_main"))
+            + priorityFileExtSuffix;
+    File priFile = new File(priorityFile);
 
-      if (priFile.isFile() && priFile.exists()) {
-        try (BufferedReader bfr =
-            new BufferedReader(new InputStreamReader(new FileInputStream(priFile), "UTF-8"))) {
-          Pattern p = Pattern.compile(priorityRegex);
+    if (priFile.isFile() && priFile.exists()) {
+      try (BufferedReader bfr =
+          new BufferedReader(new InputStreamReader(new FileInputStream(priFile), "UTF-8"))) {
+        Pattern p = Pattern.compile(priorityRegex);
 
-          String line = "";
-          while ((line = bfr.readLine()) != null) {
-            Matcher m = p.matcher(line);
+        String line = "";
+        while ((line = bfr.readLine()) != null) {
+          Matcher m = p.matcher(line);
 
-            if (m.find()) {
-              String isrFunc = m.group(1);
-              int priority = Integer.parseInt(m.group(2));
+          if (m.find()) {
+            String isrFunc = m.group(1);
+            int priority = Integer.parseInt(m.group(2));
 
-              if (!results.containsKey(isrFunc)) {
-                results.put(isrFunc, priority);
-              } else {
-                logger.log(
-                    Level.WARNING,
-                    "Multiple interruption priority for the function: " + isrFunc);
-              }
+            if (!results.containsKey(isrFunc)) {
+              results.put(isrFunc, priority);
             } else {
               logger.log(
                   Level.WARNING,
-                  "Cannot extract the interruption information from line: " + line);
+                  "Multiple interruption priority for the function: " + isrFunc);
             }
+          } else {
+            logger.log(
+                Level.WARNING,
+                "Cannot extract the interruption information from line: " + line);
           }
-        } catch (IOException e) {
-          logger.log(
-              Level.SEVERE,
-              "Cannot read the priority file '" + priorityFile + "': " + e.getMessage());
         }
-      } else {
+      } catch (IOException e) {
         logger.log(
-            Level.WARNING,
-            "The priority file '" + priorityFile + "' for interruption does not exist!");
+            Level.SEVERE,
+            "Cannot read the priority file '" + priorityFile + "': " + e.getMessage());
       }
     } else {
-      logger.log(Level.WARNING, "The priority file is null!");
+      logger.log(
+          Level.WARNING,
+          "The priority file '" + priorityFile + "' for interruption does not exist!");
     }
 
     return results;
@@ -700,7 +763,7 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
     results = Collections2.transform(results, ts -> ts.withActiveThread(activeThread));
 
     // TODO: handle interruption.
-    results = handleInterruption(threadingState, results);
+    results = handleInterruption(threadingState, results, cfaEdge);
 
     return ImmutableList.copyOf(results);
   }
@@ -774,9 +837,9 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
 
           // special process for interrupt functions.
           if(functionName.equals(disIntpFunc)) {
-            return handleDisEnInterruptFunc(results, (AFunctionCall) statement, false);
+            return handleDisEnInterruptFunc(results, cfaEdge, false);
           } else if (functionName.equals(enIntpFunc)) {
-            return handleDisEnInterruptFunc(results, (AFunctionCall) statement, true);
+            return handleDisEnInterruptFunc(results, cfaEdge, true);
           }
         }
       }
@@ -854,42 +917,31 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
 
   private Collection<ThreadingIntpState> handleDisEnInterruptFunc(
       final Collection<ThreadingIntpState> results,
-      final AFunctionCall stmt,
+      final CFAEdge edge,
       boolean enableIntp)
       throws UnrecognizedCodeException {
-    List<? extends AExpression> param =
-        stmt.getFunctionCallExpression().getParameterExpressions();
-    if (param.size() != 1) {
-      throw new UnrecognizedCodeException(
-          "unsupported number of parameters of enable/disable interruption function",
-          stmt);
-    }
+    int enDisIntpLevel = getEnDisIntpLevel(edge).getFirst();
 
-    AExpression opIntpLevelExp = param.get(0);
-    if (opIntpLevelExp instanceof CIntegerLiteralExpression) {
-      int opIntpLevel = ((CIntegerLiteralExpression) opIntpLevelExp).getValue().intValue();
-
-      if (opIntpLevel >= -1) {
-        if (enableIntp) {
-          if (opIntpLevel == -1) {
-            return transform(results, ts -> ts.enableAllIntpAndCopy());
-          } else {
-            // the interrupt number should minus one to fit the array index.
-            return transform(results, ts -> ts.enableIntpAndCopy(opIntpLevel - 1));
-          }
+    if (enDisIntpLevel == -2) {
+      throw new UnrecognizedCodeException("unsupported code: ", edge);
+    } else if (enDisIntpLevel >= -1) {
+      if (enableIntp) {
+        if (enDisIntpLevel == -1) {
+          return transform(results, ts -> ts.enableAllIntpAndCopy());
         } else {
-          if (opIntpLevel == -1) {
-            return transform(results, ts -> ts.disableAllIntpAndCopy());
-          } else {
-            // the interrupt number should minus one to fit the array index.
-            return transform(results, ts -> ts.disableIntpAndCopy(opIntpLevel - 1));
-          }
+          // the interrupt number should minus one to fit the array index.
+          return transform(results, ts -> ts.enableIntpAndCopy(enDisIntpLevel - 1));
         }
       } else {
-        throw new UnrecognizedCodeException("unsupported interrupt level", opIntpLevelExp);
+        if (enDisIntpLevel == -1) {
+          return transform(results, ts -> ts.disableAllIntpAndCopy());
+        } else {
+          // the interrupt number should minus one to fit the array index.
+          return transform(results, ts -> ts.disableIntpAndCopy(enDisIntpLevel - 1));
+        }
       }
     } else {
-      throw new UnrecognizedCodeException("unsupported function argument", opIntpLevelExp);
+      throw new UnrecognizedCodeException("unsupported interrupt level", edge);
     }
   }
   
@@ -1376,7 +1428,8 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
 
   private Collection<ThreadingIntpState> handleInterruption(
       final ThreadingIntpState threadingState,
-      final Collection<ThreadingIntpState> results)
+      final Collection<ThreadingIntpState> results,
+      final CFAEdge edge)
       throws UnrecognizedCodeException, InterruptedException {
     // first step: obtain all the interrupt point to check whether this location need to be
     // interrupted.
@@ -1384,7 +1437,7 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
     if (!intpPoints.isEmpty() && !threadingState.isAllInterruptDisabled()) {
       // second step: we need to filter out some invalid interrupts by using the following rules:
       Set<Pair<Integer, String>> canIntpPoints =
-          filterOutInvalidInterruptPoints(threadingState, intpPoints);
+          filterOutInvalidInterruptPoints(threadingState, intpPoints, edge);
 
       // third step: group and re-order these interrupt points according to their priorities.
       Set<List<String>> orderedIntpPoints = createInteruptCreationSet(canIntpPoints);
@@ -1412,10 +1465,13 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
    * @param threadingState Current threading state.
    * @param intpPoints The interrupts that can occur at current location.
    * @return each pair contains: 1) the priority of the interrupt, and 2) the name of interrupt.
+   * @throws UnrecognizedCodeException
    */
   private Set<Pair<Integer, String>> filterOutInvalidInterruptPoints(
       final ThreadingIntpState threadingState,
-      final Collection<Pair<CFANode, String>> intpPoints) {
+      final Collection<Pair<CFANode, String>> intpPoints,
+      final CFAEdge edge)
+      throws UnrecognizedCodeException {
     //// rule 1: remove replicated interrupts, and add priority for last interrupts.
     ImmutableSet<String> intpFuncSet = from(intpPoints).transform(p -> p.getSecond()).toSet();
     ImmutableSet<Pair<Integer, String>> intpPriFuncPairSet =
@@ -1428,10 +1484,10 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
         getGreaterPriorityInterrupts(threadingState, intpPriFuncPairSet);
 
     //// rule 3: removes disabled interrupts.
+    /// NOTICE: in this step, we need add interruptions if current transfer-in edge is enable
+    //// function.
     ImmutableSet<Pair<Integer, String>> enIntpsPriGreater =
-        from(intpsPriGreater).filter(i -> threadingState.isInterruptEnabled(i.getFirst())).toSet();
-    // ImmutableSet<String> enIntpsPriGreaterFuncNameSet =
-    // from(enIntpsPriGreater).transform(i -> i.getSecond()).toSet();
+        getEnabledInterrupts(threadingState, intpsPriGreater, edge);
 
     //// rule 4: remove reentrant interrupts (this rule is covered by rule 2 since the interrupts in
     //// 'enIntpsPriGreater' are greater than that of interrupts in current interrupt stack
@@ -1471,6 +1527,36 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
     }
     
     return intpsPriGreater;
+  }
+
+  private ImmutableSet<Pair<Integer, String>> getEnabledInterrupts(
+      final ThreadingIntpState threadingState,
+      final ImmutableSet<Pair<Integer, String>> intpPriFuncPairSet,
+      final CFAEdge edge)
+      throws UnrecognizedCodeException {
+    // first, we need to check whether current edge is an interruption enable function.
+    Pair<Integer, Boolean> enDisIntpLevelPair = getEnDisIntpLevel(edge);
+    int enDisIntpLevel = enDisIntpLevelPair.getFirst();
+    boolean isEnFunc = enDisIntpLevelPair.getSecond();
+
+    if (isEnFunc) {
+      // current edge contains enable-function, we just need to return the given pairs.
+      return intpPriFuncPairSet;
+    } else if (enDisIntpLevel >= -1) {
+      // current edge contains disable-function, we should filter the interruptions belong to the
+      // priority.
+      if (enDisIntpLevel == -1) {
+        // disable all the interruptions, thus no interruption should be returned.
+        return ImmutableSet.of();
+      } else {
+        // filter the interruptions that belongs to the priority.
+        return from(intpPriFuncPairSet).filter(i -> i.getFirst() != enDisIntpLevel).toSet();
+      }
+    } else {
+      // current edge is an normal edge, we need to filter the disabled interruptions.
+      return from(intpPriFuncPairSet).filter(i -> threadingState.isInterruptEnabled(i.getFirst()))
+          .toSet();
+    }
   }
 
   private Set<List<String>>
@@ -1610,6 +1696,55 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
     return intpPriOrder.equals(InterruptPriorityOrder.BH)
         ? ThreadingIntpState.MIN_PRIORITY_NUMBER
         : ThreadingIntpState.MAX_PRIORITY_NUMBER;
+  }
+
+  /**
+   * This function returns the priority number of an interruption-enable/disable function.
+   * 
+   * @param pEdge The edge that may contains the enable/disable function.
+   * @return The priority number that the given edge specified and whether current edge contains an
+   *         enable function (true -> enable, false -> disable). If the give edge is not an
+   *         enable/disable function, '<-2, false>' will be returned (it means that the lowest
+   *         priority should be -1, and currently the 'false' flag is meaningless).
+   * 
+   * @throws UnrecognizedCodeException Throw this exception if: 1) the parameter number of
+   *         enable/disable function is not equals to 1; 2) the enable/disable priority number is
+   *         less than -1.
+   */
+  public Pair<Integer, Boolean> getEnDisIntpLevel(final CFAEdge pEdge)
+      throws UnrecognizedCodeException {
+    if (pEdge.getEdgeType().equals(CFAEdgeType.StatementEdge)) {
+      AStatement stmt = ((AStatementEdge) pEdge).getStatement();
+      if (stmt instanceof AFunctionCall) {
+        AExpression funcNameExp =
+            ((AFunctionCall) stmt).getFunctionCallExpression().getFunctionNameExpression();
+        if (funcNameExp instanceof AIdExpression) {
+          final String funcName = ((AIdExpression) funcNameExp).getName();
+
+          if (funcName.startsWith(enIntpFunc) || funcName.startsWith(disIntpFunc)) {
+            List<? extends AExpression> param =
+                ((AFunctionCall) stmt).getFunctionCallExpression().getParameterExpressions();
+            if (param.size() != 1) {
+              throw new UnrecognizedCodeException(
+                  "unsupported number of parameters of enable/disable interruption function: ",
+                  stmt);
+            }
+
+            AExpression opIntpLevelExp = param.get(0);
+            if (opIntpLevelExp instanceof CIntegerLiteralExpression) {
+              int opIntpLevel = ((CIntegerLiteralExpression) opIntpLevelExp).getValue().intValue();
+              if (opIntpLevel >= -1) {
+                return Pair.of(opIntpLevel, funcName.startsWith(enIntpFunc));
+              } else {
+                throw new UnrecognizedCodeException("unsupported interrupt level", opIntpLevelExp);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return Pair.of(-2, false);
   }
 
 }

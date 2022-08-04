@@ -73,6 +73,7 @@ import org.sosy_lab.cpachecker.core.reachedset.ResultProviderReachedSet;
 import org.sosy_lab.cpachecker.core.specification.Specification;
 import org.sosy_lab.cpachecker.core.specification.SpecificationProperty;
 import org.sosy_lab.cpachecker.cpa.arg.ARGState;
+import org.sosy_lab.cpachecker.cpa.dataaccess.DataAccessCPA;
 import org.sosy_lab.cpachecker.exceptions.CPAException;
 import org.sosy_lab.cpachecker.exceptions.ParserException;
 import org.sosy_lab.cpachecker.util.AbstractStates;
@@ -554,6 +555,8 @@ public class CPAchecker {
         //                  System.out.println(p);
         //                });
         System.out.println("====================================================================");
+        // System.out.println("Race times:\n " + DataAccessCPA..toString());
+       System.out.println("Race times:\n " + DataAccessCPA.raceNum.toString());
 
         if (cexLimit > 0) {
           counterExampleCount =

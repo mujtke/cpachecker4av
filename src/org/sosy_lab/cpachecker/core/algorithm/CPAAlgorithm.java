@@ -313,27 +313,51 @@ public class CPAAlgorithm implements Algorithm, StatisticsProvider {
       }
     }
 
-    if (((ARGState) state).getStateId() == 17) {
-      int k = 0;
-      ++k;
-      System.out.println(((ARGState) state).getStateId());
-    }
-    if (((ARGState) state).getStateId() == 63) {
-      int k = 0;
-      ++k;
-      System.out.println(((ARGState) state).getStateId());
-    }
-    if (((ARGState) state).getStateId() == 74) {
-      int k = 0;
-      ++k;
-      System.out.println(((ARGState) state).getStateId());
-    }
-    if (((ARGState) state).getStateId() == 80) {
-      int k = 0;
-      ++k;
-      System.out.println(((ARGState) state).getStateId());
-    }
     // System.out.println(((ARGState) state).getStateId());
+    if (((ARGState) state).getStateId() == 603) {
+      int k = 0;
+      ++k;
+    }
+    if (((ARGState) state).getStateId() == 601) {
+      int k = 0;
+      ++k;
+    }
+    if (state instanceof ARGState && ((ARGState) state).getStateId() == 604) {
+      int k = 0;
+      ++k;
+    }
+    if (state instanceof ARGState && ((ARGState) state).getStateId() == 35) {
+      int k = 0;
+      ++k;
+      // System.out.println(((ARGState) state).getStateId());
+    }
+//    System.out.println(((ARGState) state).getStateId());
+
+    // if (!((ARGState) state).getParents().isEmpty()) {
+    // ARGState argParState = ((ARGState) state).getParents().iterator().next();
+    // CFAEdge edge = argParState.getEdgeToChild((ARGState) state);
+    //
+    // int curStateId = ((ARGState) state).getStateId(), parStateId = argParState.getStateId();
+    // System.out.println(
+    // ""
+    // + curStateId
+    // + " [fillcolor=\"cornflowerblue\" shape=\"box\" label=\"s"
+    // + curStateId
+    // + "\" id=\""
+    // + curStateId
+    // + "\"]");
+    // System.out.println(
+    // parStateId
+    // + " -> "
+    // + curStateId
+    // + " [label=\""
+    // + edge
+    // + "\" id=\""
+    // + parStateId
+    // + " -> "
+    // + curStateId
+    // + "\"]");
+    // }
 
     stats.transferTimer.start();
     Collection<? extends AbstractState> successors;
@@ -356,6 +380,16 @@ public class CPAAlgorithm implements Algorithm, StatisticsProvider {
       logger.log(Level.FINER, "Considering successor of current state");
       logger.log(Level.ALL, "Successor of", state, "\nis", successor);
 
+      if (state instanceof ARGState && ((ARGState) successor).getStateId() == 3706) {
+        int k = 0;
+        ++k;
+        // System.out.println(((ARGState) state).getStateId());
+      }
+      // @Nullable
+      // ThreadingIntpState curState =
+      // AbstractStates.extractStateByType(successor, ThreadingIntpState.class);
+      // System.out.println(curState.toDOTLabel());
+
       stats.precisionTimer.start();
       PrecisionAdjustmentResult precAdjustmentResult;
       try {
@@ -373,6 +407,11 @@ public class CPAAlgorithm implements Algorithm, StatisticsProvider {
       successor = precAdjustmentResult.abstractState();
       Precision successorPrecision = precAdjustmentResult.precision();
       Action action = precAdjustmentResult.action();
+
+      if (state instanceof ARGState && ((ARGState) successor).getStateId() == 30) {
+        int k = 0;
+        ++k;
+      }
 
       if (action == Action.BREAK) {
         stats.stopTimer.start();

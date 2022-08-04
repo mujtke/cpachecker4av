@@ -1,0 +1,41 @@
+   BENCHMARK INFORMATION
+benchmark definition:    interrupt.xml
+name:                    interrupt
+run sets:                Interrupt_unreach-call.Interrupt-AtomicityViolation
+date:                    Tue, 2022-07-19 16:51:14 CST
+tool:                    CPAchecker 2.0
+tool executable:         scripts/cpa.sh
+options:                 -heap 4096M -benchmark -timelimit 120s
+parallel runs:           2
+resource limits:
+- memory:                15000.0 MB
+- time:                  900 s
+- cpu cores:             1
+hardware requirements:
+- cpu cores:             1
+- memory:                15000.0 MB
+------------------------------------------------------------
+
+   SYSTEM INFORMATION
+host:                    YangTian
+os:                      Linux-5.15.0-41-generic-x86_64-with-glibc2.29
+cpu:                     Intel Core i7-8700 CPU @ 3.20GHz
+- cores:                 12
+- max frequency:         4600.0 MHz
+- turbo boost enabled:   True
+ram:                     33541.623808 MB
+------------------------------------------------------------
+
+
+
+Interrupt_unreach-call.Interrupt-AtomicityViolation
+Run set 1 of 1: skipped because it has no files
+
+Statistics:              0 Files
+  correct:               0
+    correct true:        0
+    correct false:       0
+  incorrect:             0
+    incorrect true:      0
+    incorrect false:     0
+  unknown:               0

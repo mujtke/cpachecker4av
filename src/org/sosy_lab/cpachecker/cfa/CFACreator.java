@@ -123,6 +123,12 @@ public class CFACreator {
       description="entry function")
   private String mainFunctionName = "main";
 
+  @Option(
+    secure = true,
+    name = "analysis.mainFunctionNameRegex",
+    description = "This option specifies the name regex of the main function.")
+  private String mainFunctionNameRegex = "main";
+
   @Option(secure=true, name="analysis.machineModel",
       description = "the machine model, which determines the sizes of types like int")
   private MachineModel machineModel = MachineModel.LINUX32;
@@ -425,7 +431,7 @@ public class CFACreator {
         mainFunction = getJavaMainMethod(sourceFiles, c.getFunctions());
         break;
       case C:
-        mainFunction = getCMainFunction(sourceFiles, c.getFunctions());
+        mainFunction = getCMainFunction(sourceFiles, c.getFunctions()); // here mainFunction corresponding the CFA of main function.
         break;
       default:
         throw new AssertionError();
@@ -485,7 +491,7 @@ public class CFACreator {
 
     // get loop information
     // (needs post-order information)
-    if (useLoopStructure) {
+    if (useLoopStructure) { // here, add loop information for cfas gotten
       addLoopStructure(cfa);
     }
 
@@ -724,6 +730,8 @@ public class CFACreator {
     Preconditions.checkArgument(sourceFiles.size() == 1, "Multiple input files not supported by 'getJavaMainMethod'");
     String mainClassName = sourceFiles.get(0);
 
+    // obtian the real main function name(mainly for benchmarking).
+    mainFunctionName = getRealMainFunctionName(cfas);
     // try specified function
     FunctionEntryNode mainFunction = cfas.get(mainFunctionName);
 
@@ -768,6 +776,8 @@ public class CFACreator {
       final Map<String, FunctionEntryNode> cfas)
       throws InvalidConfigurationException {
 
+    // obtian the real main function name(mainly for benchmarking).
+    mainFunctionName = getRealMainFunctionName(cfas);
     // try specified function
     FunctionEntryNode mainFunction = cfas.get(mainFunctionName);
 
@@ -802,6 +812,17 @@ public class CFACreator {
       throw new InvalidConfigurationException("No entry function found, please specify one.");
     }
     return mainFunction;
+  }
+
+  private String getRealMainFunctionName(final Map<String, FunctionEntryNode> cfas) {
+    if (!mainFunctionName.equals(mainFunctionNameRegex)) {
+      for (String func : cfas.keySet()) {
+        if (func.matches(mainFunctionNameRegex)) {
+          return func;
+        }
+      }
+    }
+    return mainFunctionName;
   }
 
   private void addLoopStructure(MutableCFA cfa) {

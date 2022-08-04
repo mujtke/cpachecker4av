@@ -68,7 +68,7 @@ public class GlobalAccessChecker {
   /** check, whether the edge might have a write- or read-access to
    * global variables or shared memory, i.e. whether the edge might
    * influence other threads or uses only scoped variables of the thread. */
-  boolean hasGlobalAccess(CFAEdge edge) {
+  public boolean hasGlobalAccess(CFAEdge edge) {
     switch (edge.getEdgeType()) {
     case BlankEdge:
       return false;

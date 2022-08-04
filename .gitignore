@@ -80,6 +80,17 @@ a.out
 # /test/results/
 /test/results/*
 
+# test
+/test/benchmark-racebench-part
+/test/interrupt.xml
+/test/racebench
+/test/thread_interrupt
+/test/common.h
+/test/output
+/test/racebench-special
+/test/svcomp-benchmarks
+
+
 # /.idea/
 .idea/workspace.xml
 .idea/uiDesigner.xml

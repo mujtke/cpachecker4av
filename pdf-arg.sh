@@ -40,6 +40,6 @@ do
 
 	# generate a new version.
 	echo "generating new version: $fname.$TargetExt"
-	dot -Gsize=1000 -Tpdf "$fname.$ConvertExt" -o "$fname.$TargetExt"
+	dot -Tpdf "$fname.$ConvertExt" -o "$fname.$TargetExt"
 done
 

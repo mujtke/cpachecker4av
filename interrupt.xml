@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE benchmark PUBLIC "+//IDN sosy-lab.org//DTD BenchExec benchmark 1.9//EN" "https://www.sosy-lab.org/benchexec/benchmark-2.3.dtd">
+<benchmark tool="cpachecker" timelimit="15 min" memlimit="15 GB" cpuCores="1" threads="2">
+
+  <option name="-heap">4096M</option>
+  <option name="-benchmark"/>
+  <option name="-timelimit">120s</option>
+
+<rundefinition name="Interrupt_unreach-call">
+  <tasks name="Interrupt-AtomicityViolation">
+	  <includesfile>../benchmark-racebench/InterruptAtomicityViolation.set</includesfile>
+	  <propertyfile>../benchmark-racebench/properties/unreach-call.prp</propertyfile>
+	  <option name="-config">./config/myAnalysis-concurrent-interrupt-benchmark.properties</option>
+  </tasks>
+</rundefinition>
+
+</benchmark>

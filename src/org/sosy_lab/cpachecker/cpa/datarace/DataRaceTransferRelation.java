@@ -25,7 +25,10 @@ public class DataRaceTransferRelation extends SingleEdgeTransferRelation {
   public Collection<? extends AbstractState>
       getAbstractSuccessorsForEdge(AbstractState pState, Precision pPrecision, CFAEdge pCfaEdge)
           throws CPATransferException, InterruptedException {
-    return Set.of(pState);
+    if (pState instanceof DataRaceState) {
+      return Set.of(new DataRaceState(((DataRaceState) pState).isDataRace(), false));
+    }
+    return Set.of();
   }
 
 }

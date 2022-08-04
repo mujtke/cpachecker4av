@@ -328,7 +328,7 @@ class CFABuilder extends ASTVisitor {
       ImmutableMap<String, CComplexTypeDeclaration> actTypes = actScope.getTypes();
       ImmutableMap<String, CTypeDefDeclaration> actTypeDefs = actScope.getTypeDefs();
       ImmutableMap<String, CSimpleDeclaration> actVars = actScope.getGlobalVars();
-      for (IASTFunctionDefinition declaration : triple.getFirst()) {
+      for (IASTFunctionDefinition declaration : triple.getFirst()) {  // here enumerate every function to store its cfa in 'cfas'
           handleFunctionDefinition(actScope,
                                    triple.getSecond(),
                                    declaration,
@@ -347,7 +347,8 @@ class CFABuilder extends ASTVisitor {
       throw new CParserException("Invalid C code because of undefined identifiers mentioned above.");
     }
 
-    ParseResult result = new ParseResult(cfas, cfaNodes, globalDecls, parsedFiles);
+    ParseResult result = new ParseResult(cfas, cfaNodes, globalDecls, parsedFiles); // here, have gotten every cfa in
+                                                                                    // program, but the loop structures haven't been gotten yet.
 
     return result;
   }
@@ -381,7 +382,7 @@ class CFABuilder extends ASTVisitor {
     // check whether an interrupt happened while parsing
     shutdownNotifier.shutdownIfNecessary();
 
-    FunctionEntryNode startNode = functionBuilder.getStartNode();
+    FunctionEntryNode startNode = functionBuilder.getStartNode(); //here the startNode corresponding to the cfa(we can get a cfa form its start node)
     String functionName = startNode.getFunctionName();
 
     if (cfas.containsKey(functionName)) {

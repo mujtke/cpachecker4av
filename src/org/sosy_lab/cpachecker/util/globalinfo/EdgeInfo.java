@@ -63,6 +63,10 @@ public class EdgeInfo implements StatisticsProvider {
     }
   }
 
+  public CFA getCFA() {
+    return cfa;
+  }
+
   public ConditionalDepGraph getCondDepGraph() {
     return condDepGraph;
   }

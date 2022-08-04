@@ -154,6 +154,8 @@ solver.z3.usePhantomReferences = false
 # SPDX-FileCopyrightText: 2007-2020 Dirk Beyer <https://www.sosy-lab.org>
 # SPDX-FileCopyrightText: 2014-2017 Université Grenoble Alpes
 # SPDX-FileCopyrightText: 2020 Dirk Beyer <https://www.sosy-lab.org>
+# SPDX-FileCopyrightText: 2021 Dirk Beyer <https://www.sosy-lab.org>
+# SPDX-FileCopyrightText: 2022 Dirk Beyer <https://www.sosy-lab.org>
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -197,6 +199,10 @@ analysis.algorithm.MPV = false
 # use a analysis which proves if the program satisfies a specified property
 # with the help of an enabler CPA to separate differnt program paths
 analysis.algorithm.analysisWithEnabler = false
+
+# use BBPR algorithm for BDD-analysis based Block inference ppor & Path
+# reduction
+analysis.algorithm.bbpr = false
 
 # use adjustable conditions algorithm
 analysis.algorithm.conditionAdjustment = false
@@ -321,6 +327,9 @@ analysis.interprocedural = true
 # the machine model, which determines the sizes of types like int
 analysis.machineModel = LINUX32
   enum:     [LINUX32, LINUX64, ARM]
+
+# This option specifies the name regex of the main function.
+analysis.mainFunctionNameRegex = "main"
 
 # Use as targets for call edges only those shich are assigned to the
 # particular expression (structure field).
@@ -672,6 +681,11 @@ bmc.propagateInvGenInterrupts = false
 
 # Use generalized counterexamples to induction as candidate invariants.
 bmc.usePropertyDirection = false
+
+# With this option enabled, function calls that occur in the CFA are
+# followed. By disabling this option one can traverse a function without
+# following function calls (in this case FunctionSummaryEdges are used)
+cap.por.cbippor.followFunctionCalls = true
 
 # File name where to put the path program that is generated as input for
 # CBMC. A temporary file is used if this is unspecified. If specified, the
@@ -1614,6 +1628,9 @@ cpa.constraints.resolveDefinites = true
 cpa.constraints.satCheckStrategy = AT_ASSUME
   enum:     [AT_ASSUME, AT_TARGET]
 
+# The main function begin line
+cpa.dataaccess.MAIN_LINE = no default value
+
 # export automaton to file
 cpa.dca.refiner.dotExport = false
 
@@ -1785,8 +1802,6 @@ cpa.locations.allowMultipleLHS = false
 cpa.locations.followFunctionCalls = true
 
 # With this option enabled, the migration between two abstract states will
-# apply to concurrent programs.
-# With this option enabled, the migration between two abstract states will
 # apply to concurrent programs (compatible with serial programs).
 cpa.locations.forConcurrent = true
 
@@ -1802,6 +1817,12 @@ cpa.locations.useAllPossibleClones = false
 # do not use the original functions from the CFA, but cloned ones. See
 # cfa.postprocessing.CFACloner for detail.
 cpa.locations.useClonedFunctions = true
+
+# use increased number for each newly created same thread.When this option is
+# enabled, we need not to clone a thread function many times if every thread
+# function is only used once (i.e., cfa.cfaCloner.numberOfCopies can be set
+# to 1).
+cpa.locations.useIncClonedFunc = false
 
 # What are we searching for: race or deadlock
 cpa.lock.analysisMode = RACE
@@ -1979,6 +2000,18 @@ cpa.pointerA.stop = "SEP"
 # followed. By disabling this option one can traverse a function without
 # following function calls (in this case FunctionSummaryEdges are used)
 cpa.por.bippor.followFunctionCalls = true
+
+# With this option enabled, the optimization strategy for reducing the
+# redundant exploration of re-sorted read events is used.
+cpa.por.bippor.useOptDisableStates = true
+
+# With this option enabled, the optimization strategy for removing repeated
+# key-event path order is used.
+cpa.por.bippor.useOptKEPHRemove = false
+
+# With this option enabled, function calls that occur in the CFA are
+# followed. By disabling this option one can traverse a function without
+# following function calls (in this case FunctionSummaryEdges are used)
 cpa.por.bppor.followFunctionCalls = true
 
 # With this option enabled, we just need the first edge of the determined
@@ -1992,6 +2025,27 @@ cpa.por.ippor.followFunctionCalls = true
 cpa.por.ippor2.followFunctionCalls = true
 cpa.por.lppor.followFunctionCalls = true
 cpa.por.mpor.followFunctionCalls = true
+
+# Which type of state should be used to compute the constrained dependency at
+# certain state?
+# - bdd: BDDState (default)
+# - predicate: PredicateAbstractState
+# NOTICE: Corresponding CPA should be used!
+cpa.por.pcdpor.depComputationStateType = "BDD"
+  allowed values: [BDD, PREDICATE]
+
+# With this option enabled, function calls that occur in the CFA are
+# followed. By disabling this option one can traverse a function without
+# following function calls (in this case FunctionSummaryEdges are used)
+cpa.por.pcdpor.followFunctionCalls = true
+
+# With this option enabled, thread creation edge will be regarded as normal
+# edge, which may reduce redundant interleavings.
+cpa.por.pcdpor.regardThreadCreationAsNormalEdge = false
+
+# With this option enabled, function calls that occur in the CFA are
+# followed. By disabling this option one can traverse a function without
+# following function calls (in this case FunctionSummaryEdges are used)
 cpa.por.ppor.followFunctionCalls = true
 
 # Whether to give up immediately if a very large array is encountered
@@ -3006,9 +3060,89 @@ cpa.threading.useAtomicLocks = true
 # cfa.postprocessing.CFACloner for detail.
 cpa.threading.useClonedFunctions = true
 
+# use increased number for each newly created same thread.When this option is
+# enabled, we need not to clone a thread function many times if every thread
+# function is only used once (i.e., cfa.cfaCloner.numberOfCopies can be set
+# to 1).
+cpa.threading.useIncClonedFunc = false
+
 # local access locks are used to avoid expensive interleaving, if a thread
 # only reads and writes its own variables.
 cpa.threading.useLocalAccessLocks = true
+
+# Whether allow a interrupt A to be interrupted by the same interrupt (i.e.,
+# the reentrability of a interrupt). NOTICE: currently, this feature is not
+# supported!
+cpa.threadingintp.allowInterruptReentrant = false
+
+# allow assignments of a new thread to the same left-hand-side as an existing
+# thread.
+cpa.threadingintp.allowMultipleLHS = false
+
+# The function name of disabling interrupt.
+cpa.threadingintp.disIntpFunc = "disable_isr"
+
+# The function name of enabling interrupt.
+cpa.threadingintp.enIntpFunc = "enable_isr"
+
+# Whether enable interrupt nesting (i.e., allow high-priority interrupts
+# during processing a low-priority interrupt). NOTICE: this option may cause
+# expensive interleavings!
+cpa.threadingintp.enableInterruptNesting = false
+
+# Which order of interruption priority to use?
+cpa.threadingintp.intpPriOrder = BH
+  enum:     [SH, BH]
+
+# How many levels of interruption is support?
+cpa.threadingintp.maxInterruptLevel = 3
+
+# This option limits the maximum times for each interruption function (-1 for
+# un-limit times of interruption).
+cpa.threadingintp.maxInterruptTimesForEachFunc = 1
+
+# This option limits the maximun level of interrupt nesting.
+cpa.threadingintp.maxLevelInterruptNesting = 2
+
+# the maximal number of parallel threads, -1 for infinite. When combined with
+# 'useClonedFunctions=true', we need at least N cloned functions. The option
+# 'cfa.cfaCloner.numberOfCopies' should be set to N.
+cpa.threadingintp.maxNumberOfThreads = 5
+
+# This string spefies the file extension of the priority file name.
+cpa.threadingintp.priorityFileExtSuffix = "_priority.txt"
+
+# This folder contains the priority files that have the same prefix with the
+# main function.
+cpa.threadingintp.priorityFileFolder = "./config/"
+
+# The regex for extracting the interruption priority from a file.
+cpa.threadingintp.priorityRegex = "^([a-zA-Z_]+[a-zA-Z0-9_]*)\\s+(\\d+)"
+
+# simulate the interruption.
+cpa.threadingintp.simulateInterruption = true
+
+# in case of witness validation we need to check all possible function calls
+# of cloned CFAs.
+cpa.threadingintp.useAllPossibleClones = false
+
+# atomic locks are used to simulate atomic statements, as described in the
+# rules of SV-Comp.
+cpa.threadingintp.useAtomicLocks = true
+
+# do not use the original functions from the CFA, but cloned ones. See
+# cfa.postprocessing.CFACloner for detail.
+cpa.threadingintp.useClonedFunctions = true
+
+# use increased number for each newly created same thread.When this option is
+# enabled, we need not to clone a thread function many times if every thread
+# function is only used once (i.e., cfa.cfaCloner.numberOfCopies can be set
+# to 1).
+cpa.threadingintp.useIncClonedFunc = false
+
+# local access locks are used to avoid expensive interleaving, if a thread
+# only reads and writes its own variables.
+cpa.threadingintp.useLocalAccessLocks = true
 
 # which merge operator to use for UninitializedVariablesCPA?
 cpa.uninitvars.merge = "sep"
@@ -3374,6 +3508,10 @@ dependencegraph.flowdep.constraintIsDef = false
 # Whether to consider (data-)flow dependencies.
 dependencegraph.flowdeps.use = true
 
+# This option add node for global variable initialization edges (it is mainly
+# used for )
+depgraph.cond.addNodeForGVars = false
+
 # A list of function pairs that could forms an 'atomic' block, only one
 # thread could executes the instructions in this block.
 depgraph.cond.blockfunc = no default value
@@ -3384,17 +3522,34 @@ depgraph.cond.blockfunc = no default value
 # verification!
 depgraph.cond.buildClonedFunc = true
 
+# Whether build node and constraints for navie thread function (these
+# functions are never used in real ARG exploration). Notice that, if this
+# option and buildForClonedFunctions are disabled, then an empty graph will
+# be generated.
+depgraph.cond.buildForNoneCloneThread = false
+
+# Export this dependency graph into a file in DOT format.
+depgraph.cond.export = false
+
 # File to export dependence graph to. If `null`, dependence graph will not be
 # exported as dot.
-depgraph.cond.exportDot = "./output/CondDependenceGraph.dot"
+depgraph.cond.exportDot = "CondDependenceGraph.dot"
 
 # This option specificies the name of the main function (it is mainly used
 # for decrease the size of the dependence graph)
 depgraph.cond.mainfunc = "main"
 
+# Remove isolated nodes in the conditional dependency graph, these nodes have
+# no effect with other transitions.
+depgraph.cond.removeIsolatedNodes = false
+
 # Whether to consider conditional dependencies. If not, then two depedent
 # nodes will allways be un-conditionally dependent.
 depgraph.cond.useCondDep = false
+
+# Use solver to compute more precise independence constraints
+# (time-consuming), otherwise we only simply the constraints.
+depgraph.cond.useSolverToCompute = false
 
 # ignore declarations when detecting modifications, be careful when variables
 # are renamed (could be unsound)
@@ -4346,6 +4501,9 @@ undefinedFunctionsCollector.stubsFile = "stubs.c"
 
 # select an analysis from a set of analyses after unknown result
 useCompositionAnalysis = false
+
+# build constrained dependency graph (only for partial-order reduction)
+utils.edgeinfo.buildDepGraph = false
 
 # File for exporting the witness automaton in DOT format.
 witness.automatonDumpFile = no default value

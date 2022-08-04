@@ -37,7 +37,7 @@ SPDX-License-Identifier: Apache-2.0
          ReferenceEquality: TODO enable this and fix alarms (but there are many cases where reference equality is desired)
          MissingSummary: currently buggy (fails build without specifying class)
          -->
-    <setproxy proxyhost="127.0.0.1" proxyport="58591"/>
+    <setproxy proxyhost="127.0.0.1" proxyport="10809"/>
     <property name="errorprone.options" value="
         -Xep:BadImport:OFF
         -Xep:ReferenceEquality:OFF
