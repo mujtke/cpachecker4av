@@ -99,4 +99,7 @@ a.out
 .idea/junitgenerator-prj-settings.xml
 .idea/vcs.xml
 
+# results
+/results
+
 nothing added to commit but untracked files present (use "git add" to track)
