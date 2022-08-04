@@ -82,3 +82,5 @@ if [ -e a.out ];then
 	exit 0
 	echo "done!"
 fi
+
+[ -e tmp.out ] && rm -rf a.out;
