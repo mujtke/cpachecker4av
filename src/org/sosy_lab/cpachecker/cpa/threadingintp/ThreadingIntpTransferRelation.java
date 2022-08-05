@@ -171,6 +171,10 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
   @Option(secure = true, description = "This option limits the maximun level of interrupt nesting.")
   private int maxLevelInterruptNesting = 2;
 
+  @Option(
+          secure = true,
+          description = "")
+  private boolean isSingleThread = true;
 
   @Option(
     secure = true,
@@ -761,9 +765,11 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
 
     // Store the active thread in the given states, cf. JavaDoc of activeThread
     results = Collections2.transform(results, ts -> ts.withActiveThread(activeThread));
+    int m = results.size();
 
     // TODO: handle interruption.
     results = handleInterruption(threadingState, results, cfaEdge);
+    int n = results.size();
 
     return ImmutableList.copyOf(results);
   }
@@ -788,6 +794,12 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
     assert activeThreads.size() <= 1 : "multiple active threads are not allowed: " + activeThreads;
     // then either the same function is called in different threads -> not supported.
     // (or CompositeCPA and ThreadingCPA do not work together)
+
+    if (isSingleThread && activeThreads.size() > 1) {
+//      Preconditions.checkNotNull(threadingState.getKeepedActiveThread());
+      assert threadingState.getKeepedActiveThread() != null : "when verify the single thread program, KeepedActiveThread shouldn't be null.";
+      return threadingState.getKeepedActiveThread();
+    }
 
     return activeThreads.isEmpty() ? null : Iterables.getOnlyElement(activeThreads);
   }
@@ -1363,7 +1375,18 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
     }
 
     // delete temporary information from the state, cf. JavaDoc of the called methods
-    return Optionals.asSet(results.map(ts -> ts.withActiveThread(null).withEntryFunction(null)));
+    // return Optionals.asSet(results.map(ts -> ts.withActiveThread(null).withEntryFunction(null)));
+
+    // modified by yzc: 22-08-05
+    if (isSingleThread) {
+      return Optionals.asSet(results.map(ts -> {
+        String keepedActiveThread = ts.getIntpStack().isEmpty() ? ts.getActiveThread() : ts.getIntpStack().peekLast();
+        return ts.withActiveThread(null).withEntryFunction(null).withKeepedActiveThread(keepedActiveThread);
+      }));
+    } else {
+      return Optionals.asSet(results.map(ts -> ts.withActiveThread(null).withEntryFunction(null)));
+    }
+
   }
 
   private @Nullable ThreadingIntpState handleWitnessAutomaton(

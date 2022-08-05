@@ -89,6 +89,16 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
   @Nullable private final String activeThread;
 
   /**
+   * record the active thread id where the state produced. This value only takes effect when the input
+   * program is single-thread.
+   * if input program is single-thread, this value will be updated in {@link
+   * ThreadingIntpTransferRelation#strengthen} by the way:
+   * 1) if {@link ThreadingIntpState#intpStack} is empty, this value is updated to {@link ThreadingIntpState#activeThread}
+   * 2) else, this value is updated to the last element in {@link ThreadingIntpState#intpStack}
+   */
+  private String keepedActiveThread = null;
+
+  /**
    * This functioncall was called when creating this thread. This value should only be set in
    * {@link ThreadingIntpTransferRelation#getAbstractSuccessorsForEdge} when creating a new thread,
    * i.e., only for the first state in the new thread, which is directly after the function call.
@@ -796,4 +806,20 @@ public class ThreadingIntpState implements AbstractState, AbstractStateWithLocat
     return threads.get(tid).isInterruptThread();
   }
 
+  public void setKeepedActiveThread(String keepedActiveThread) {
+    this.keepedActiveThread = keepedActiveThread;
+  }
+
+  public String getKeepedActiveThread() {
+    return keepedActiveThread;
+  }
+
+  public Deque<String> getIntpStack() {
+    return intpStack;
+  }
+
+  public ThreadingIntpState withKeepedActiveThread(String pKeepedActiveThread) {
+    this.setKeepedActiveThread(pKeepedActiveThread);
+    return this;
+  }
 }

@@ -313,51 +313,7 @@ public class CPAAlgorithm implements Algorithm, StatisticsProvider {
       }
     }
 
-    // System.out.println(((ARGState) state).getStateId());
-    if (((ARGState) state).getStateId() == 603) {
-      int k = 0;
-      ++k;
-    }
-    if (((ARGState) state).getStateId() == 601) {
-      int k = 0;
-      ++k;
-    }
-    if (state instanceof ARGState && ((ARGState) state).getStateId() == 604) {
-      int k = 0;
-      ++k;
-    }
-    if (state instanceof ARGState && ((ARGState) state).getStateId() == 35) {
-      int k = 0;
-      ++k;
-      // System.out.println(((ARGState) state).getStateId());
-    }
-//    System.out.println(((ARGState) state).getStateId());
-
-    // if (!((ARGState) state).getParents().isEmpty()) {
-    // ARGState argParState = ((ARGState) state).getParents().iterator().next();
-    // CFAEdge edge = argParState.getEdgeToChild((ARGState) state);
-    //
-    // int curStateId = ((ARGState) state).getStateId(), parStateId = argParState.getStateId();
-    // System.out.println(
-    // ""
-    // + curStateId
-    // + " [fillcolor=\"cornflowerblue\" shape=\"box\" label=\"s"
-    // + curStateId
-    // + "\" id=\""
-    // + curStateId
-    // + "\"]");
-    // System.out.println(
-    // parStateId
-    // + " -> "
-    // + curStateId
-    // + " [label=\""
-    // + edge
-    // + "\" id=\""
-    // + parStateId
-    // + " -> "
-    // + curStateId
-    // + "\"]");
-    // }
+    System.out.println(((ARGState) state).getStateId());
 
     stats.transferTimer.start();
     Collection<? extends AbstractState> successors;
