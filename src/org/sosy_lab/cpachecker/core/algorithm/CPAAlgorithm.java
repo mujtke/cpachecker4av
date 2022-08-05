@@ -313,7 +313,7 @@ public class CPAAlgorithm implements Algorithm, StatisticsProvider {
       }
     }
 
-    System.out.println(((ARGState) state).getStateId());
+//    System.out.println(((ARGState) state).getStateId());
 
     stats.transferTimer.start();
     Collection<? extends AbstractState> successors;

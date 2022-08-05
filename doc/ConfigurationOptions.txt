@@ -3093,6 +3093,7 @@ cpa.threadingintp.enableInterruptNesting = false
 # Which order of interruption priority to use?
 cpa.threadingintp.intpPriOrder = BH
   enum:     [SH, BH]
+cpa.threadingintp.isSingleThread = true
 
 # How many levels of interruption is support?
 cpa.threadingintp.maxInterruptLevel = 3

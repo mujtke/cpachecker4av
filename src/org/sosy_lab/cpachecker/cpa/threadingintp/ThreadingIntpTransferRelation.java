@@ -173,7 +173,9 @@ public final class ThreadingIntpTransferRelation extends SingleEdgeTransferRelat
 
   @Option(
           secure = true,
-          description = "")
+          description = "Whether regard current input program as sequence program, or not. When verifying interrupt" +
+                  "program in sequence program, this value need to be true to avoid error from method" +
+                  "'getActiveThread'")
   private boolean isSingleThread = true;
 
   @Option(

@@ -62,6 +62,9 @@ do
 				i=1 
 				;; 
 		esac; 
+		
+		# when "^C" caught, break the loop
+		trap "break" SIGINT
 	done < tmp.out
 
 	# can't give a valid answer, like unsupport array
@@ -76,6 +79,10 @@ do
 		total_num=0 m1=0 m2=0 m3=0 m4=0 time=0
 		flag=0
 	fi
+
+
+	# when "^C" caught, break the loop
+	trap "break" SIGINT
 done
 if [ -e a.out ];then
 	rm -rf a.out
@@ -83,4 +90,6 @@ if [ -e a.out ];then
 	echo "done!"
 fi
 
-[ -e tmp.out ] && rm -rf a.out;
+[ -e tmp.out ] && rm -rf tmp.out;
+
+trap "echo 'exit'" EXIT
